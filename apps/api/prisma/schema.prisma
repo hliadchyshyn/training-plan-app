@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ATHLETE
+  TRAINER
+  ADMIN
+}
+
+enum PlanType {
+  GROUP
+  INDIVIDUAL
+}
+
+enum FeedbackStatus {
+  COMPLETED
+  PARTIAL
+  SKIPPED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(ATHLETE)
+  createdAt    DateTime @default(now())
+
+  trainerTeams    TrainerTeam[]    @relation("TrainerTeams")
+  trainerPlans    TrainingPlan[]   @relation("TrainerPlans")
+  teamMemberships TeamMember[]
+  athleteSessions AthleteSession[]
+  individualPlans IndividualPlan[]
+}
+
+model TrainerTeam {
+  id        String       @id @default(uuid())
+  trainerId String
+  trainer   User         @relation("TrainerTeams", fields: [trainerId], references: [id])
+  name      String
+  createdAt DateTime     @default(now())
+  members   TeamMember[]
+  plans     TrainingPlan[]
+}
+
+model TeamMember {
+  teamId    String
+  athleteId String
+  addedAt   DateTime    @default(now())
+  team      TrainerTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  athlete   User        @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, athleteId])
+}
+
+model TrainingPlan {
+  id        String   @id @default(uuid())
+  trainerId String
+  trainer   User     @relation("TrainerPlans", fields: [trainerId], references: [id])
+  date      DateTime @db.Date
+  type      PlanType
+  title     String?
+  notes     String?
+  teamId    String?
+  team      TrainerTeam?    @relation(fields: [teamId], references: [id])
+  createdAt DateTime        @default(now())
+
+  exerciseGroups ExerciseGroup[]
+  sessions       AthleteSession[]
+}
+
+model ExerciseGroup {
+  id         String       @id @default(uuid())
+  planId     String
+  plan       TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int
+  rawText    String
+  parsedData Json?
+  sessions   AthleteSession[]
+}
+
+model IndividualPlan {
+  id        String             @id @default(uuid())
+  trainerId String
+  athleteId String
+  athlete   User               @relation(fields: [athleteId], references: [id])
+  weekStart DateTime           @db.Date
+  notes     String?
+  createdAt DateTime           @default(now())
+  days      IndividualPlanDay[]
+}
+
+model IndividualPlanDay {
+  id         String         @id @default(uuid())
+  planId     String
+  plan       IndividualPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int
+  rawText    String?
+  parsedData Json?
+  sessions   AthleteSession[]
+}
+
+model AthleteSession {
+  id                  String             @id @default(uuid())
+  athleteId           String
+  athlete             User               @relation(fields: [athleteId], references: [id])
+  planId              String?
+  plan                TrainingPlan?      @relation(fields: [planId], references: [id])
+  individualPlanDayId String?
+  individualPlanDay   IndividualPlanDay? @relation(fields: [individualPlanDayId], references: [id])
+  exerciseGroupId     String?
+  exerciseGroup       ExerciseGroup?     @relation(fields: [exerciseGroupId], references: [id])
+  date                DateTime           @db.Date
+  createdAt           DateTime           @default(now())
+  feedback            SessionFeedback?
+
+  @@unique([athleteId, planId, date])
+  @@unique([athleteId, individualPlanDayId])
+}
+
+model SessionFeedback {
+  id          String         @id @default(uuid())
+  sessionId   String         @unique
+  session     AthleteSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  status      FeedbackStatus
+  rpe         Int
+  comment     String?
+  submittedAt DateTime       @default(now())
+}

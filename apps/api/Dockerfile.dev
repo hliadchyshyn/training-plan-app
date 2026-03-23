@@ -1,0 +1,23 @@
+FROM node:20-alpine
+
+RUN apk add --no-cache openssl
+
+WORKDIR /workspace
+
+# Copy all package.json files so npm can resolve workspaces
+COPY package.json ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN npm install
+
+# Copy prisma schema so prisma generate can run
+COPY apps/api/prisma ./apps/api/prisma
+
+WORKDIR /workspace/apps/api
+
+RUN npx prisma generate
+
+EXPOSE 3001
+
+CMD ["npm", "run", "dev"]

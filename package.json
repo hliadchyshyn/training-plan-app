@@ -1,0 +1,19 @@
+{
+  "name": "training-plan-app",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "recharts": "^3.8.0"
+  }
+}
