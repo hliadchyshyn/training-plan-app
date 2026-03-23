@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../api/client.js'
 import { useAuthStore } from '../store/auth.js'
+import { getErrorMessage } from '../utils/errors.js'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -22,10 +23,8 @@ export function RegisterPage() {
       const { data } = await api.post('/auth/register', form)
       setAuth(data.accessToken, data.user)
       navigate('/')
-    } catch (err: unknown) {
-      const data = (err as { response?: { data?: { error?: string; details?: Array<{message: string}> } } }).response?.data
-      const msg = data?.details?.[0]?.message ?? data?.error
-      setError(msg ?? 'Помилка реєстрації')
+    } catch (err) {
+      setError(getErrorMessage(err, 'Помилка реєстрації'))
     } finally {
       setLoading(false)
     }

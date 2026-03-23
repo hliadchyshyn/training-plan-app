@@ -2,21 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
-
-const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
-
-function getMondayOfWeek(dateStr: string): string {
-  const d = new Date(dateStr)
-  const day = d.getDay() === 0 ? 7 : d.getDay()
-  d.setDate(d.getDate() - day + 1)
-  return d.toISOString().split('T')[0]
-}
+import { getMondayOfWeek } from '../../utils/date.js'
+import { DAY_NAMES } from '../../utils/constants.js'
 
 export function CreateIndividualPlanPage() {
   const navigate = useNavigate()
   const [athleteId, setAthleteId] = useState('')
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date().toISOString()))
-  const [days, setDays] = useState<Record<number, string>>({}) // dayOfWeek → rawText
+  const [days, setDays] = useState<Record<number, string>>({})
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
 
@@ -30,10 +23,6 @@ export function CreateIndividualPlanPage() {
     onSuccess: () => navigate('/trainer'),
     onError: () => setError('Помилка збереження плану'),
   })
-
-  const handleDayChange = (dow: number, value: string) => {
-    setDays((d) => ({ ...d, [dow]: value }))
-  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,9 +49,7 @@ export function CreateIndividualPlanPage() {
             <select value={athleteId} onChange={(e) => setAthleteId(e.target.value)} required>
               <option value="">Оберіть спортсмена...</option>
               {uniqueAthletes.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.email})
-                </option>
+                <option key={a.id} value={a.id}>{a.name} ({a.email})</option>
               ))}
             </select>
           </div>
@@ -86,17 +73,7 @@ export function CreateIndividualPlanPage() {
             <thead>
               <tr>
                 {DAY_NAMES.map((n, i) => (
-                  <th
-                    key={i}
-                    style={{
-                      padding: '0.5rem',
-                      textAlign: 'left',
-                      fontWeight: 600,
-                      fontSize: '0.875rem',
-                      borderBottom: '2px solid var(--color-border)',
-                      width: `${100 / 7}%`,
-                    }}
-                  >
+                  <th key={i} style={{ padding: '0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem', borderBottom: '2px solid var(--color-border)', width: `${100 / 7}%` }}>
                     {n}
                   </th>
                 ))}
@@ -107,14 +84,11 @@ export function CreateIndividualPlanPage() {
                 {DAY_NAMES.map((_, idx) => {
                   const dow = idx + 1
                   return (
-                    <td
-                      key={idx}
-                      style={{ padding: '0.5rem', verticalAlign: 'top', borderBottom: '1px solid var(--color-border)' }}
-                    >
+                    <td key={idx} style={{ padding: '0.5rem', verticalAlign: 'top', borderBottom: '1px solid var(--color-border)' }}>
                       <textarea
                         rows={6}
                         value={days[dow] ?? ''}
-                        onChange={(e) => handleDayChange(dow, e.target.value)}
+                        onChange={(e) => setDays((d) => ({ ...d, [dow]: e.target.value }))}
                         placeholder="Введіть тренування..."
                         style={{ resize: 'vertical', fontSize: '0.8125rem', minHeight: 100 }}
                       />
@@ -131,9 +105,7 @@ export function CreateIndividualPlanPage() {
           <button className="btn-primary" type="submit" disabled={createPlan.isPending}>
             {createPlan.isPending ? 'Збереження...' : 'Зберегти план'}
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/trainer')}>
-            Скасувати
-          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/trainer')}>Скасувати</button>
         </div>
       </form>
     </div>

@@ -15,37 +15,19 @@ function TrafficDot({ status, rpe, hasSession }: { status?: string; rpe?: number
   let color = '#e5e7eb'
   let title = 'Не розпочато'
 
-  if (hasSession && !status) {
-    color = '#fbbf24'
-    title = 'Розпочато, без відгуку'
-  } else if (status === 'SKIPPED') {
-    color = '#ef4444'
-    title = 'Пропущено'
-  } else if ((rpe ?? 0) >= 9) {
-    color = '#ef4444'
-    title = 'Висока RPE'
-  } else if (status === 'COMPLETED') {
-    color = '#22c55e'
-    title = 'Виконано'
-  } else if (status === 'PARTIAL') {
-    color = '#f59e0b'
-    title = 'Частково'
-  }
+  if (hasSession && !status) { color = '#fbbf24'; title = 'Розпочато, без відгуку' }
+  else if (status === 'SKIPPED') { color = '#ef4444'; title = 'Пропущено' }
+  else if ((rpe ?? 0) >= 9) { color = '#ef4444'; title = 'Висока RPE' }
+  else if (status === 'COMPLETED') { color = '#22c55e'; title = 'Виконано' }
+  else if (status === 'PARTIAL') { color = '#f59e0b'; title = 'Частково' }
 
   return (
-    <span
-      title={title}
-      style={{
-        display: 'inline-block',
-        width: 10, height: 10,
-        borderRadius: '50%',
-        background: color,
-        flexShrink: 0,
-        marginTop: 3,
-      }}
-    />
+    <span title={title} style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 3 }} />
   )
 }
+
+const DOT_COLORS: Record<string, string> = { COMPLETED: '#22c55e', PARTIAL: '#f59e0b', SKIPPED: '#ef4444' }
+const STATUS_UA: Record<string, string> = { COMPLETED: 'Виконано', PARTIAL: 'Частково', SKIPPED: 'Пропущено' }
 
 export function FeedbackSummaryPage() {
   const { id } = useParams<{ id: string }>()
@@ -55,14 +37,17 @@ export function FeedbackSummaryPage() {
     queryFn: () => api.get(`/plans/${id}/feedback`).then((r) => r.data),
   })
 
-  const withFeedback = sessions.filter((s) => s.feedback)
-  const avgRpe = withFeedback.length
-    ? (withFeedback.reduce((sum, s) => sum + (s.feedback?.rpe ?? 0), 0) / withFeedback.length).toFixed(1)
-    : null
-
-  const completed = withFeedback.filter((s) => s.feedback?.status === 'COMPLETED').length
-  const partial = withFeedback.filter((s) => s.feedback?.status === 'PARTIAL').length
-  const skipped = withFeedback.filter((s) => s.feedback?.status === 'SKIPPED').length
+  const stats = sessions.reduce(
+    (acc, s) => {
+      if (!s.feedback) return acc
+      acc.rpeSum += s.feedback.rpe
+      acc.count++
+      acc[s.feedback.status] = (acc[s.feedback.status] ?? 0) + 1
+      return acc
+    },
+    { rpeSum: 0, count: 0 } as Record<string, number>,
+  )
+  const avgRpe = stats.count > 0 ? (stats.rpeSum / stats.count).toFixed(1) : null
 
   return (
     <div className="page">
@@ -76,10 +61,7 @@ export function FeedbackSummaryPage() {
       </h2>
 
       {isLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}
-
-      {!isLoading && sessions.length === 0 && (
-        <p style={{ color: 'var(--color-text-muted)' }}>Ще немає відгуків</p>
-      )}
+      {!isLoading && sessions.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Ще немає відгуків</p>}
 
       {sessions.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -92,12 +74,15 @@ export function FeedbackSummaryPage() {
             )}
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Відповіли</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{withFeedback.length} / {sessions.length}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.count} / {sessions.length}</div>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              {completed > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem' }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', display: 'inline-block', flexShrink: 0 }} />{completed}</span>}
-              {partial > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem' }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', flexShrink: 0 }} />{partial}</span>}
-              {skipped > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem' }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block', flexShrink: 0 }} />{skipped}</span>}
+              {['COMPLETED', 'PARTIAL', 'SKIPPED'].map((s) => stats[s] > 0 && (
+                <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: DOT_COLORS[s], display: 'inline-block', flexShrink: 0 }} />
+                  {stats[s]}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -106,11 +91,7 @@ export function FeedbackSummaryPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {sessions.map((session) => (
           <div key={session.id} className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-            <TrafficDot
-              status={session.feedback?.status}
-              rpe={session.feedback?.rpe}
-              hasSession={session.hasSession}
-            />
+            <TrafficDot status={session.feedback?.status} rpe={session.feedback?.rpe} hasSession={session.hasSession} />
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -124,18 +105,14 @@ export function FeedbackSummaryPage() {
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
                   {session.feedback && (
                     <>
-                      <span className={`badge badge-${session.feedback.status.toLowerCase() as 'completed' | 'partial' | 'skipped'}`}>
-                        {session.feedback.status === 'COMPLETED' ? 'Виконано' : session.feedback.status === 'PARTIAL' ? 'Частково' : 'Пропущено'}
+                      <span className={`badge badge-${session.feedback.status.toLowerCase()}`}>
+                        {STATUS_UA[session.feedback.status] ?? session.feedback.status}
                       </span>
                       <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>RPE {session.feedback.rpe}</span>
                     </>
                   )}
-                  {!session.feedback && !session.hasSession && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Не розпочато</span>
-                  )}
-                  {!session.feedback && session.hasSession && (
-                    <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Без відгуку</span>
-                  )}
+                  {!session.feedback && !session.hasSession && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Не розпочато</span>}
+                  {!session.feedback && session.hasSession && <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Без відгуку</span>}
                 </div>
               </div>
               {session.feedback?.comment && (

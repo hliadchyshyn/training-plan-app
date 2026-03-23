@@ -1,3 +1,19 @@
+/** Format a Date as "YYYY-MM-DD" using local time (avoids UTC offset shift) */
+export function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+export function getMondayOfWeek(dateStr: string): string {
+  const [y, mo, da] = dateStr.split('-').map(Number)
+  const d = new Date(y, mo - 1, da)
+  const dow = d.getDay() === 0 ? 7 : d.getDay()
+  d.setDate(d.getDate() - dow + 1)
+  return toLocalDateStr(d)
+}
+
 /** Format date as "23.03.26" */
 export function formatDate(date: string | Date): string {
   const d = new Date(date)

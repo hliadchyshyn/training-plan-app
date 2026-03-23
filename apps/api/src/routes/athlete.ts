@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, IND_PLAN_DAYS_INCLUDE } from '../utils/db.js'
 
 function parseDistanceMeters(str: string): number {
   const m = str.match(/(\d+(?:\.\d+)?)\s*(км|km|м|m)/i)
@@ -21,11 +22,7 @@ const feedbackSchema = z.object({
   comment: z.string().optional(),
 })
 
-const sessionWithFeedbackSchema = z.object({
-  planId: z.string().uuid().optional(),
-  individualPlanDayId: z.string().uuid().optional(),
-  exerciseGroupId: z.string().uuid().optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+const sessionWithFeedbackSchema = createSessionSchema.extend({
   status: z.enum(['COMPLETED', 'PARTIAL', 'SKIPPED']),
   rpe: z.number().int().min(1).max(10),
   comment: z.string().optional(),
@@ -34,14 +31,12 @@ const sessionWithFeedbackSchema = z.object({
 export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', fastify.authenticate)
 
-  // Weekly plan view
   fastify.get('/plans/week', async (request) => {
     const athleteId = request.user.sub
     const { date } = request.query as { date?: string }
 
-    // Calculate Mon-Sun of the requested week
     const ref = date ? new Date(date) : new Date()
-    const day = ref.getDay() === 0 ? 7 : ref.getDay() // 1=Mon, 7=Sun
+    const day = ref.getDay() === 0 ? 7 : ref.getDay()
     const monday = new Date(ref)
     monday.setDate(ref.getDate() - day + 1)
     monday.setHours(0, 0, 0, 0)
@@ -49,49 +44,34 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     sunday.setDate(monday.getDate() + 6)
     sunday.setHours(23, 59, 59, 999)
 
-    // Find athlete's teams
     const memberships = await fastify.prisma.teamMember.findMany({
       where: { athleteId },
       select: { teamId: true },
     })
     const teamIds = memberships.map((m) => m.teamId)
 
-    // Group plans for these teams this week
-    const groupPlans = await fastify.prisma.trainingPlan.findMany({
-      where: {
-        type: 'GROUP',
-        teamId: { in: teamIds },
-        date: { gte: monday, lte: sunday },
-      },
-      include: {
-        exerciseGroups: { orderBy: { order: 'asc' } },
-        team: { select: { id: true, name: true } },
-        sessions: {
-          where: { athleteId },
-          include: { feedback: true },
+    const [groupPlans, individualPlans] = await Promise.all([
+      fastify.prisma.trainingPlan.findMany({
+        where: { type: 'GROUP', teamId: { in: teamIds }, date: { gte: monday, lte: sunday } },
+        include: {
+          exerciseGroups: EXERCISE_GROUPS_INCLUDE,
+          team: { select: { id: true, name: true } },
+          sessions: { where: { athleteId }, include: { feedback: true } },
         },
-      },
-      orderBy: { date: 'asc' },
-    })
-
-    // Individual plans for this athlete this week
-    const individualPlans = await fastify.prisma.individualPlan.findMany({
-      where: {
-        athleteId,
-        weekStart: { gte: monday, lte: sunday },
-      },
-      include: {
-        days: {
-          include: {
-            sessions: {
-              where: { athleteId },
-              include: { feedback: true },
+        orderBy: { date: 'asc' },
+      }),
+      fastify.prisma.individualPlan.findMany({
+        where: { athleteId, weekStart: { gte: monday, lte: sunday } },
+        include: {
+          days: {
+            ...IND_PLAN_DAYS_INCLUDE,
+            include: {
+              sessions: { where: { athleteId }, include: { feedback: true } },
             },
           },
-          orderBy: { dayOfWeek: 'asc' },
         },
-      },
-    })
+      }),
+    ])
 
     return {
       weekStart: monday.toISOString().split('T')[0],
@@ -101,28 +81,22 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     }
   })
 
-  // Get individual plan multi-week view (for athlete's own plans)
   fastify.get('/plans/individual', async (request) => {
     const athleteId = request.user.sub
-
     return fastify.prisma.individualPlan.findMany({
       where: { athleteId },
       include: {
         days: {
+          ...IND_PLAN_DAYS_INCLUDE,
           include: {
-            sessions: {
-              where: { athleteId },
-              include: { feedback: true },
-            },
+            sessions: { where: { athleteId }, include: { feedback: true } },
           },
-          orderBy: { dayOfWeek: 'asc' },
         },
       },
       orderBy: { weekStart: 'asc' },
     })
   })
 
-  // Get single group plan by id (for athlete detail view)
   fastify.get('/plans/group/:id', async (request, reply) => {
     const athleteId = request.user.sub
     const { id } = request.params as { id: string }
@@ -130,19 +104,15 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     const plan = await fastify.prisma.trainingPlan.findUnique({
       where: { id },
       include: {
-        exerciseGroups: { orderBy: { order: 'asc' } },
+        exerciseGroups: EXERCISE_GROUPS_INCLUDE,
         team: { select: { id: true, name: true } },
-        sessions: {
-          where: { athleteId },
-          include: { feedback: true },
-        },
+        sessions: { where: { athleteId }, include: { feedback: true } },
       },
     })
 
     if (!plan) return reply.status(404).send({ error: 'Plan not found' })
-
-    // Verify athlete is in the team (teamId is always set for GROUP plans)
     if (!plan.teamId) return reply.status(403).send({ error: 'Forbidden' })
+
     const member = await fastify.prisma.teamMember.findUnique({
       where: { teamId_athleteId: { teamId: plan.teamId, athleteId } },
     })
@@ -151,7 +121,6 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     return plan
   })
 
-  // Create session (athlete selects group or logs individual plan day)
   fastify.post('/sessions', async (request, reply) => {
     const athleteId = request.user.sub
     const body = createSessionSchema.parse(request.body)
@@ -169,11 +138,9 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
         date: new Date(body.date),
       },
     })
-
     return reply.status(201).send(session)
   })
 
-  // Create session + submit feedback atomically
   fastify.post('/sessions/with-feedback', async (request, reply) => {
     const athleteId = request.user.sub
     const body = sessionWithFeedbackSchema.parse(request.body)
@@ -183,14 +150,9 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const result = await fastify.prisma.$transaction(async (tx: typeof fastify.prisma) => {
-      // Upsert session (athlete may revisit)
       let session = body.planId
-        ? await tx.athleteSession.findFirst({
-            where: { athleteId, planId: body.planId },
-          })
-        : await tx.athleteSession.findFirst({
-            where: { athleteId, individualPlanDayId: body.individualPlanDayId },
-          })
+        ? await tx.athleteSession.findFirst({ where: { athleteId, planId: body.planId } })
+        : await tx.athleteSession.findFirst({ where: { athleteId, individualPlanDayId: body.individualPlanDayId } })
 
       if (!session) {
         session = await tx.athleteSession.create({
@@ -203,7 +165,6 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
           },
         })
       } else if (body.exerciseGroupId && session.exerciseGroupId !== body.exerciseGroupId) {
-        // Athlete changed their group selection — update it
         session = await tx.athleteSession.update({
           where: { id: session.id },
           data: { exerciseGroupId: body.exerciseGroupId },
@@ -212,17 +173,8 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
 
       const feedback = await tx.sessionFeedback.upsert({
         where: { sessionId: session.id },
-        create: {
-          sessionId: session.id,
-          status: body.status,
-          rpe: body.rpe,
-          comment: body.comment,
-        },
-        update: {
-          status: body.status,
-          rpe: body.rpe,
-          comment: body.comment,
-        },
+        create: { sessionId: session.id, status: body.status, rpe: body.rpe, comment: body.comment },
+        update: { status: body.status, rpe: body.rpe, comment: body.comment },
       })
 
       return { session, feedback }
@@ -231,7 +183,6 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(result)
   })
 
-  // Submit feedback
   fastify.post('/sessions/:id/feedback', async (request, reply) => {
     const athleteId = request.user.sub
     const { id } = request.params as { id: string }
@@ -242,19 +193,15 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: 'Session not found' })
     }
 
-    const feedback = await fastify.prisma.sessionFeedback.upsert({
+    return fastify.prisma.sessionFeedback.upsert({
       where: { sessionId: id },
       create: { sessionId: id, ...body },
       update: body,
     })
-
-    return feedback
   })
 
-  // Get my sessions with feedback
   fastify.get('/sessions', async (request) => {
     const athleteId = request.user.sub
-
     return fastify.prisma.athleteSession.findMany({
       where: { athleteId },
       include: {
@@ -267,13 +214,11 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // Weekly volume stats for chart
   fastify.get('/stats/volume', async (request) => {
     const athleteId = request.user.sub
     const { weeks = '8' } = request.query as { weeks?: string }
     const numWeeks = Math.min(parseInt(weeks, 10) || 8, 26)
 
-    // Get sessions with exercise group parsedData for last N weeks
     const since = new Date()
     since.setDate(since.getDate() - numWeeks * 7)
 
@@ -286,7 +231,6 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: { date: 'asc' },
     })
 
-    // Group by week start (Monday)
     const weekMap: Record<string, number> = {}
 
     for (const session of sessions) {
@@ -298,16 +242,13 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       monday.setDate(d.getDate() - day + 1)
       const weekKey = monday.toISOString().split('T')[0]
 
-      // Calculate volume from parsedData
       const parsed = session.exerciseGroup.parsedData as {
         blocks?: Array<{ sets?: number; distance?: string; series?: number }>
       }
       let volumeKm = 0
       for (const block of parsed.blocks ?? []) {
         const meters = parseDistanceMeters(block.distance ?? '')
-        if (meters > 0) {
-          volumeKm += (block.sets ?? 1) * (block.series ?? 1) * meters / 1000
-        }
+        if (meters > 0) volumeKm += (block.sets ?? 1) * (block.series ?? 1) * meters / 1000
       }
 
       weekMap[weekKey] = (weekMap[weekKey] ?? 0) + volumeKm

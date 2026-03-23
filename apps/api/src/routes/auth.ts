@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import bcrypt from 'bcrypt'
 import { z } from 'zod'
 
@@ -19,6 +19,25 @@ const changePasswordSchema = z.object({
 })
 
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret'
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+
+type FastifyWithJwt = Parameters<FastifyPluginAsync>[0]
+
+function signTokens(fastify: FastifyWithJwt, sub: string, email: string, role: string) {
+  const payload = { sub, email, role }
+  const accessToken = fastify.jwt.sign(payload, { expiresIn: '15m' })
+  const refreshToken = fastify.jwt.sign(payload, { secret: REFRESH_SECRET, expiresIn: '7d' })
+  return { accessToken, refreshToken }
+}
+
+function setRefreshCookie(reply: FastifyReply, token: string) {
+  reply.setCookie('refreshToken', token, {
+    httpOnly: true,
+    path: '/api/auth/refresh',
+    maxAge: COOKIE_MAX_AGE,
+    sameSite: 'lax',
+  })
+}
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/register', async (request, reply) => {
@@ -28,9 +47,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const existing = await fastify.prisma.user.findFirst({
       where: { email: { equals: body.email, mode: 'insensitive' } },
     })
-    if (existing) {
-      return reply.status(409).send({ error: 'Email already registered' })
-    }
+    if (existing) return reply.status(409).send({ error: 'Email already registered' })
 
     const passwordHash = await bcrypt.hash(body.password, 12)
     const user = await fastify.prisma.user.create({
@@ -38,22 +55,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       select: { id: true, email: true, name: true, role: true },
     })
 
-    const accessToken = fastify.jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
-      { expiresIn: '15m' },
-    )
-    const refreshToken = fastify.jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
-      { secret: REFRESH_SECRET, expiresIn: '7d' },
-    )
-
-    reply.setCookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      path: '/api/auth/refresh',
-      maxAge: 60 * 60 * 24 * 7,
-      sameSite: 'lax',
-    })
-
+    const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
+    setRefreshCookie(reply, refreshToken)
     return { accessToken, user }
   })
 
@@ -63,42 +66,19 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const user = await fastify.prisma.user.findFirst({
       where: { email: { equals: body.email, mode: 'insensitive' } },
     })
-    if (!user) {
-      return reply.status(401).send({ error: 'Invalid credentials' })
-    }
+    if (!user) return reply.status(401).send({ error: 'Invalid credentials' })
 
     const valid = await bcrypt.compare(body.password, user.passwordHash)
-    if (!valid) {
-      return reply.status(401).send({ error: 'Invalid credentials' })
-    }
+    if (!valid) return reply.status(401).send({ error: 'Invalid credentials' })
 
-    const accessToken = fastify.jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
-      { expiresIn: '15m' },
-    )
-    const refreshToken = fastify.jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
-      { secret: REFRESH_SECRET, expiresIn: '7d' },
-    )
-
-    reply.setCookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      path: '/api/auth/refresh',
-      maxAge: 60 * 60 * 24 * 7,
-      sameSite: 'lax',
-    })
-
-    return {
-      accessToken,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
-    }
+    const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
+    setRefreshCookie(reply, refreshToken)
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
   })
 
   fastify.post('/refresh', async (request, reply) => {
     const token = request.cookies.refreshToken
-    if (!token) {
-      return reply.status(401).send({ error: 'No refresh token' })
-    }
+    if (!token) return reply.status(401).send({ error: 'No refresh token' })
 
     let payload: { sub: string; email: string; role: string }
     try {
@@ -108,44 +88,32 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const user = await fastify.prisma.user.findUnique({ where: { id: payload.sub } })
-    if (!user) {
-      return reply.status(401).send({ error: 'User not found' })
-    }
+    if (!user) return reply.status(401).send({ error: 'User not found' })
 
     const accessToken = fastify.jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
       { expiresIn: '15m' },
     )
-
     return { accessToken }
   })
 
-  fastify.put(
-    '/password',
-    { preHandler: fastify.authenticate },
-    async (request, reply) => {
-      const body = changePasswordSchema.parse(request.body)
-      const userId = (request.user as { sub: string }).sub
+  fastify.put('/password', { preHandler: fastify.authenticate }, async (request, reply) => {
+    const body = changePasswordSchema.parse(request.body)
+    const userId = request.user.sub
 
-      const user = await fastify.prisma.user.findUnique({ where: { id: userId } })
-      if (!user) return reply.status(404).send({ error: 'User not found' })
+    const user = await fastify.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return reply.status(404).send({ error: 'User not found' })
 
-      const valid = await bcrypt.compare(body.currentPassword, user.passwordHash)
-      if (!valid) return reply.status(400).send({ error: 'Невірний поточний пароль' })
+    const valid = await bcrypt.compare(body.currentPassword, user.passwordHash)
+    if (!valid) return reply.status(400).send({ error: 'Невірний поточний пароль' })
 
-      const passwordHash = await bcrypt.hash(body.newPassword, 12)
-      await fastify.prisma.user.update({ where: { id: userId }, data: { passwordHash } })
+    const passwordHash = await bcrypt.hash(body.newPassword, 12)
+    await fastify.prisma.user.update({ where: { id: userId }, data: { passwordHash } })
+    return { ok: true }
+  })
 
-      return { ok: true }
-    },
-  )
-
-  fastify.post(
-    '/logout',
-    { preHandler: fastify.authenticate },
-    async (_request, reply) => {
-      reply.clearCookie('refreshToken', { path: '/api/auth/refresh' })
-      return { ok: true }
-    },
-  )
+  fastify.post('/logout', { preHandler: fastify.authenticate }, async (_request, reply) => {
+    reply.clearCookie('refreshToken', { path: '/api/auth/refresh' })
+    return { ok: true }
+  })
 }

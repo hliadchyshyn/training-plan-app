@@ -1,11 +1,11 @@
+import { useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { api } from '../api/client.js'
+import { FeedbackForm } from '../components/FeedbackForm.js'
 import { formatWeekRange } from '../utils/date.js'
-import type { FeedbackStatus } from '@training-plan/shared'
-
-const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
+import { DAY_NAMES, STATUS_LABELS } from '../utils/constants.js'
+import type { FeedbackStatus } from '../types/common.js'
 
 interface IndPlanDay {
   id: string
@@ -24,19 +24,12 @@ interface IndPlan {
   days: IndPlanDay[]
 }
 
-const STATUS_LABELS: Record<FeedbackStatus, string> = {
-  COMPLETED: 'Виконано',
-  PARTIAL: 'Частково',
-  SKIPPED: 'Пропущено',
-}
-
 export function IndividualPlanPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [searchParams] = useSearchParams()
   const [activeDayId, setActiveDayId] = useState<string | null>(() => searchParams.get('day'))
-  const [feedbackForm, setFeedbackForm] = useState<{ status?: FeedbackStatus; rpe: number; comment: string }>({ rpe: 5, comment: '' })
 
   const { data: plans, isLoading } = useQuery<IndPlan[]>({
     queryKey: ['individual-plans'],
@@ -45,19 +38,17 @@ export function IndividualPlanPage() {
 
   const plan = plans?.find((p) => p.id === id)
 
-  const submitWithFeedback = useMutation({
+  const submitFeedback = useMutation({
     mutationFn: ({ dayId, date }: { dayId: string; date: string }) =>
       api.post('/my/sessions/with-feedback', {
         individualPlanDayId: dayId,
         date,
-        status: feedbackForm.status,
-        rpe: feedbackForm.rpe,
-        comment: feedbackForm.comment || undefined,
+        status: undefined, // overridden by FeedbackForm onSubmit
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['individual-plans'] })
       qc.invalidateQueries({ queryKey: ['week'] })
-      if (searchParams.get('day')) { navigate('/') } else { setActiveDayId(null) }
+      if (searchParams.get('day')) navigate(-1); else setActiveDayId(null)
     },
   })
 
@@ -71,12 +62,19 @@ export function IndividualPlanPage() {
     return d.toISOString().split('T')[0]
   }
 
+  // Index days by dayOfWeek for O(1) lookup
+  const daysByDow = new Map(plan.days.map((d) => [d.dayOfWeek, d]))
+
+  const handleCancel = () => {
+    if (searchParams.get('day')) navigate(-1); else setActiveDayId(null)
+  }
+
   return (
     <div className="page">
       <button
         className="btn-secondary"
         style={{ fontSize: '0.875rem', marginBottom: '1rem', padding: '0.25rem 0.75rem' }}
-        onClick={() => searchParams.get('day') ? navigate('/') : navigate(-1)}
+        onClick={handleCancel}
       >
         ← Назад
       </button>
@@ -97,7 +95,7 @@ export function IndividualPlanPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {DAY_NAMES.map((name, idx) => {
           const dow = idx + 1
-          const day = plan.days.find((d) => d.dayOfWeek === dow)
+          const day = daysByDow.get(dow)
           const session = day?.sessions[0]
           const isActive = activeDayId === day?.id
           const date = dateForDay(dow)
@@ -121,17 +119,14 @@ export function IndividualPlanPage() {
                 border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
               }}
               onClick={() => {
-                if (!session?.feedback && !isActive) {
-                  setActiveDayId(day.id)
-                  setFeedbackForm({ rpe: 5, comment: '', status: undefined })
-                }
+                if (!session?.feedback && !isActive) setActiveDayId(day.id)
               }}
             >
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                 <strong style={{ width: 30, flexShrink: 0 }}>{name}</strong>
                 <div style={{ flex: 1, whiteSpace: 'pre-line', fontSize: '0.875rem' }}>{day.rawText}</div>
                 {session?.feedback && (
-                  <span className={`badge badge-${session.feedback.status.toLowerCase() as 'completed' | 'partial' | 'skipped'}`} style={{ flexShrink: 0 }}>
+                  <span className={`badge badge-${session.feedback.status.toLowerCase()}`} style={{ flexShrink: 0 }}>
                     {STATUS_LABELS[session.feedback.status]}
                   </span>
                 )}
@@ -151,54 +146,23 @@ export function IndividualPlanPage() {
                   style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="form-group">
-                    <label style={{ fontWeight: 600 }}>Як пройшло?</label>
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
-                      {(['COMPLETED', 'PARTIAL', 'SKIPPED'] as FeedbackStatus[]).map((s) => (
-                        <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0, cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name={`status-${day.id}`}
-                            checked={feedbackForm.status === s}
-                            onChange={() => setFeedbackForm((f) => ({ ...f, status: s }))}
-                            style={{ width: 'auto' }}
-                          />
-                          {STATUS_LABELS[s]}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>RPE (навантаження): {feedbackForm.rpe}</label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={feedbackForm.rpe}
-                      onChange={(e) => setFeedbackForm((f) => ({ ...f, rpe: +e.target.value }))}
-                      style={{ padding: 0, border: 'none' }}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Коментар (необов'язково)</label>
-                    <textarea
-                      rows={2}
-                      value={feedbackForm.comment}
-                      onChange={(e) => setFeedbackForm((f) => ({ ...f, comment: e.target.value }))}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      className="btn-primary"
-                      disabled={!feedbackForm.status || submitWithFeedback.isPending}
-                      onClick={() => submitWithFeedback.mutate({ dayId: day.id, date })}
-                    >
-                      {submitWithFeedback.isPending ? 'Збереження...' : 'Зберегти відгук'}
-                    </button>
-                    <button className="btn-secondary" onClick={() => searchParams.get('day') ? navigate('/') : setActiveDayId(null)}>
-                      Скасувати
-                    </button>
-                  </div>
+                  <FeedbackForm
+                    namePrefix={`status-${day.id}`}
+                    isPending={submitFeedback.isPending}
+                    onSubmit={(values) =>
+                      api.post('/my/sessions/with-feedback', {
+                        individualPlanDayId: day.id,
+                        date,
+                        ...values,
+                        comment: values.comment || undefined,
+                      }).then(() => {
+                        qc.invalidateQueries({ queryKey: ['individual-plans'] })
+                        qc.invalidateQueries({ queryKey: ['week'] })
+                        if (searchParams.get('day')) navigate(-1); else setActiveDayId(null)
+                      })
+                    }
+                    onCancel={handleCancel}
+                  />
                 </div>
               )}
             </div>

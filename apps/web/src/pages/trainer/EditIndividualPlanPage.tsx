@@ -3,8 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
 import { formatWeekRange } from '../../utils/date.js'
-
-const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
+import { DAY_NAMES } from '../../utils/constants.js'
 
 interface IndPlanDay { id: string; dayOfWeek: number; rawText: string | null }
 interface IndPlan {
@@ -29,7 +28,6 @@ export function EditIndividualPlanPage() {
 
   const plan: IndPlan | undefined = data?.individualPlans?.find((p: IndPlan) => p.id === id)
 
-  // Pre-fill form once plan loads
   useEffect(() => {
     if (!plan) return
     setNotes(plan.notes ?? '')
@@ -59,9 +57,7 @@ export function EditIndividualPlanPage() {
 
   return (
     <div className="page">
-      <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-        Редагувати план
-      </h2>
+      <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.25rem' }}>Редагувати план</h2>
       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
         {plan.athlete.name} — тиждень {formatWeekRange(plan.weekStart)}
       </p>
@@ -77,11 +73,7 @@ export function EditIndividualPlanPage() {
             <thead>
               <tr>
                 {DAY_NAMES.map((n, i) => (
-                  <th key={i} style={{
-                    padding: '0.5rem', textAlign: 'left', fontWeight: 600,
-                    fontSize: '0.875rem', borderBottom: '2px solid var(--color-border)',
-                    width: `${100 / 7}%`,
-                  }}>
+                  <th key={i} style={{ padding: '0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem', borderBottom: '2px solid var(--color-border)', width: `${100 / 7}%` }}>
                     {n}
                   </th>
                 ))}
@@ -113,9 +105,7 @@ export function EditIndividualPlanPage() {
           <button className="btn-primary" type="submit" disabled={updatePlan.isPending}>
             {updatePlan.isPending ? 'Збереження...' : 'Зберегти зміни'}
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/trainer')}>
-            Скасувати
-          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/trainer')}>Скасувати</button>
         </div>
       </form>
     </div>
