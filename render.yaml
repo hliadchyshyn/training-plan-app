@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: .
     buildCommand: npm ci --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build --workspace=apps/api
-    startCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && node apps/api/dist/index.js
+    startCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && SEED_ADMIN_EMAIL=admin@admin.com SEED_ADMIN_PASSWORD=qwerty123 npx tsx apps/api/prisma/seed.ts && node apps/api/dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
