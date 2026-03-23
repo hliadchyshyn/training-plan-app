@@ -149,7 +149,7 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'planId or individualPlanDayId required' })
     }
 
-    const result = await fastify.prisma.$transaction(async (tx: typeof fastify.prisma) => {
+    const result = await fastify.prisma.$transaction(async (tx) => {
       let session = body.planId
         ? await tx.athleteSession.findFirst({ where: { athleteId, planId: body.planId } })
         : await tx.athleteSession.findFirst({ where: { athleteId, individualPlanDayId: body.individualPlanDayId } })

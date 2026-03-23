@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import bcrypt from 'bcrypt'
 import { z } from 'zod'
+import type { Role } from '@training-plan/shared'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -23,7 +24,7 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
 type FastifyWithJwt = Parameters<FastifyPluginAsync>[0]
 
-function signTokens(fastify: FastifyWithJwt, sub: string, email: string, role: string) {
+function signTokens(fastify: FastifyWithJwt, sub: string, email: string, role: Role) {
   const payload = { sub, email, role }
   const accessToken = fastify.jwt.sign(payload, { expiresIn: '15m' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

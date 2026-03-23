@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { parseWorkout } from '../parsers/workout.js'
 import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, DAYS_INCLUDE } from '../utils/db.js'
@@ -34,7 +35,7 @@ function toGroupCreate(groups: z.infer<typeof exerciseGroupSchema>[]) {
     name: g.name,
     order: g.order,
     rawText: g.rawText,
-    parsedData: parseWorkout(g.rawText) ?? undefined,
+    parsedData: (parseWorkout(g.rawText) ?? undefined) as Prisma.InputJsonValue | undefined,
   }))
 }
 
@@ -44,7 +45,7 @@ function toDayCreate(days: Array<{ dayOfWeek: number; rawText?: string }>) {
     .map((d) => ({
       dayOfWeek: d.dayOfWeek,
       rawText: d.rawText,
-      parsedData: d.rawText ? (parseWorkout(d.rawText) ?? undefined) : undefined,
+      parsedData: (d.rawText ? (parseWorkout(d.rawText) ?? undefined) : undefined) as Prisma.InputJsonValue | undefined,
     }))
 }
 
