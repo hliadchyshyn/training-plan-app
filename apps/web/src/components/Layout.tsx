@@ -10,6 +10,7 @@ import {
   IconShield, IconLogout, IconLock,
 } from '@tabler/icons-react'
 import { useAuthStore } from '../store/auth.js'
+import logoSvg from '../assets/logo.svg'
 import { api } from '../api/client.js'
 
 export function Layout() {
@@ -54,7 +55,8 @@ export function Layout() {
       <AppShell.Navbar p="sm" style={{ borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
         <Group mb="md" px="xs">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-          <Text fw={700} size="lg" c="blue">Training Plan</Text>
+          <img src={logoSvg} alt="Training Plan" style={{ height: 36 }} />
+          <Text fw={600} size="sm" c="dark" style={{ letterSpacing: '-0.01em' }}>Training Plan</Text>
         </Group>
 
         <Stack gap={2} style={{ flex: 1 }}>

@@ -122,16 +122,18 @@ export function WeeklyCalendarPage() {
     ? Math.round(withFeedback.reduce((sum, s) => sum + s.feedback!.rpe, 0) / withFeedback.length * 10) / 10
     : null
 
-  // Planned volume = sum of all exercise groups for the week
-  const plannedVolumeKm = Math.round(
+  // Planned volume = group exercise groups + individual plan days
+  const plannedVolumeKm = Math.round((
     groupPlans.reduce((sum, plan) =>
       sum + plan.exerciseGroups.reduce((s, g) => s + calcVolumeKm(g.parsedData), 0), 0
-    ) * 10
-  ) / 10
+    ) +
+    indPlans.reduce((sum, plan) =>
+      sum + plan.days.reduce((s, d) => s + calcVolumeKm((d as IndPlanDay & { parsedData?: unknown }).parsedData), 0), 0
+    )
+  ) * 10) / 10
 
-  // Completed volume = sessions with COMPLETED/PARTIAL feedback
-  // If exerciseGroupId is set, use that group's volume; otherwise sum all groups for the plan
-  const completedVolumeKm = Math.round(
+  // Completed volume = sessions with COMPLETED/PARTIAL feedback (group + individual)
+  const completedVolumeKm = Math.round((
     groupPlans.reduce((sum, plan) => {
       const session = plan.sessions[0]
       if (!session?.feedback || session.feedback.status === 'SKIPPED') return sum
@@ -139,10 +141,16 @@ export function WeeklyCalendarPage() {
         const group = plan.exerciseGroups.find((g) => g.id === session.exerciseGroupId)
         return sum + (group ? calcVolumeKm(group.parsedData) : 0)
       }
-      // fallback: sum all groups if no specific group selected
       return sum + plan.exerciseGroups.reduce((s, g) => s + calcVolumeKm(g.parsedData), 0)
-    }, 0) * 10
-  ) / 10
+    }, 0) +
+    indPlans.reduce((sum, plan) =>
+      sum + plan.days.reduce((s, d) => {
+        const session = d.sessions[0]
+        if (!session?.feedback || session.feedback.status === 'SKIPPED') return s
+        return s + calcVolumeKm((d as IndPlanDay & { parsedData?: unknown }).parsedData)
+      }, 0), 0
+    )
+  ) * 10) / 10
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -164,12 +172,12 @@ export function WeeklyCalendarPage() {
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem' }}>
             {plannedVolumeKm > 0 && (
               <span style={{ color: '#1e40af' }}>
-                План: <strong>{plannedVolumeKm} км</strong>
+                Заплановано: <strong>{plannedVolumeKm} км</strong>
               </span>
             )}
             {completedVolumeKm > 0 && (
               <span style={{ color: '#16a34a' }}>
-                Виконано: <strong>{completedVolumeKm} км</strong>
+                Тижневий об'єм: <strong>{completedVolumeKm} км</strong>
               </span>
             )}
             {completed > 0 && <span style={{ color: '#16a34a' }}>✓ Виконано: <strong>{completed}</strong></span>}
@@ -249,7 +257,7 @@ export function WeeklyCalendarPage() {
                   {dayIndDays.map((day) => {
                     const session = day.sessions[0] as Session | undefined
                     return (
-                      <Link key={day.id} to={`/individual-plan/${day.planId}`} style={{ display: 'block', textDecoration: 'none', marginBottom: '0.5rem' }}>
+                      <Link key={day.id} to={`/individual-plan/${day.planId}?day=${day.id}`} style={{ display: 'block', textDecoration: 'none', marginBottom: '0.5rem' }}>
                         <div style={{
                           background: '#f0fdf4', borderRadius: 'var(--radius)',
                           padding: '0.5rem 0.75rem', border: '1px solid #bbf7d0',
@@ -278,7 +286,7 @@ export function WeeklyCalendarPage() {
         </div>
       )}
 
-      <VolumeChart />
+      {/* <VolumeChart /> */}
     </div>
   )
 }

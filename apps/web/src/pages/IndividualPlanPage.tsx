@@ -1,7 +1,8 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client.js'
+import { formatWeekRange } from '../utils/date.js'
 import type { FeedbackStatus } from '@training-plan/shared'
 
 const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
@@ -33,7 +34,8 @@ export function IndividualPlanPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [activeDayId, setActiveDayId] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const [activeDayId, setActiveDayId] = useState<string | null>(() => searchParams.get('day'))
   const [feedbackForm, setFeedbackForm] = useState<{ status?: FeedbackStatus; rpe: number; comment: string }>({ rpe: 5, comment: '' })
 
   const { data: plans, isLoading } = useQuery<IndPlan[]>({
@@ -55,7 +57,7 @@ export function IndividualPlanPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['individual-plans'] })
       qc.invalidateQueries({ queryKey: ['week'] })
-      setActiveDayId(null)
+      if (searchParams.get('day')) { navigate('/') } else { setActiveDayId(null) }
     },
   })
 
@@ -74,7 +76,7 @@ export function IndividualPlanPage() {
       <button
         className="btn-secondary"
         style={{ fontSize: '0.875rem', marginBottom: '1rem', padding: '0.25rem 0.75rem' }}
-        onClick={() => navigate(-1)}
+        onClick={() => searchParams.get('day') ? navigate('/') : navigate(-1)}
       >
         ← Назад
       </button>
@@ -83,7 +85,7 @@ export function IndividualPlanPage() {
         Індивідуальний план
       </h2>
       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-        Тиждень {plan.weekStart.slice(0, 10)}
+        Тиждень {formatWeekRange(plan.weekStart)}
       </p>
 
       {plan.notes && (
@@ -193,7 +195,7 @@ export function IndividualPlanPage() {
                     >
                       {submitWithFeedback.isPending ? 'Збереження...' : 'Зберегти відгук'}
                     </button>
-                    <button className="btn-secondary" onClick={() => setActiveDayId(null)}>
+                    <button className="btn-secondary" onClick={() => searchParams.get('day') ? navigate('/') : setActiveDayId(null)}>
                       Скасувати
                     </button>
                   </div>

@@ -1,122 +1,212 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/client.js'
+import { formatDate, formatWeekRange } from '../../utils/date.js'
+
+const LIMIT = 20
+
+function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null
+  return (
+    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', marginTop: '0.75rem' }}>
+      <button className="btn-secondary" style={{ fontSize: '0.8125rem', padding: '0.25rem 0.6rem' }} disabled={page === 1} onClick={() => onChange(page - 1)}>‹</button>
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          style={{
+            fontSize: '0.8125rem', padding: '0.25rem 0.6rem', borderRadius: 6, border: '1px solid var(--color-border)',
+            background: p === page ? 'var(--color-primary)' : 'white',
+            color: p === page ? 'white' : 'inherit',
+            cursor: 'pointer',
+          }}
+        >{p}</button>
+      ))}
+      <button className="btn-secondary" style={{ fontSize: '0.8125rem', padding: '0.25rem 0.6rem' }} disabled={page === totalPages} onClick={() => onChange(page + 1)}>›</button>
+    </div>
+  )
+}
 
 export function TrainerDashboardPage() {
   const today = new Date().toISOString().split('T')[0]
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['trainer-plans'],
-    queryFn: () => api.get('/plans').then((r) => r.data),
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
+  const [month, setMonth] = useState('')
+  const [teamId, setTeamId] = useState('')
+  const [athleteId, setAthleteId] = useState('')
+  const [groupPage, setGroupPage] = useState(1)
+  const [indPage, setIndPage] = useState(1)
+
+  // Reset pages when filters change
+  const setTabReset = (t: 'upcoming' | 'past') => { setTab(t); setGroupPage(1); setIndPage(1) }
+  const setMonthReset = (m: string) => { setMonth(m); setGroupPage(1); setIndPage(1) }
+  const setTeamReset = (id: string) => { setTeamId(id); setGroupPage(1) }
+  const setAthleteReset = (id: string) => { setAthleteId(id); setIndPage(1) }
+
+  // Today's plans (dashboard header)
+  const { data: todayData, isLoading: todayLoading } = useQuery({
+    queryKey: ['trainer-today', today],
+    queryFn: () => api.get('/plans', { params: { date: today } }).then((r) => r.data),
   })
 
-  const todayPlans = (data?.groupPlans ?? []).filter(
+  // Paginated plans
+  const params = { tab, ...(month ? { month } : {}), ...(teamId ? { teamId } : {}), ...(athleteId ? { athleteId } : {}), groupPage, indPage, limit: LIMIT }
+  const { data, isLoading } = useQuery({
+    queryKey: ['trainer-plans', tab, month, teamId, athleteId, groupPage, indPage],
+    queryFn: () => api.get('/plans', { params }).then((r) => r.data),
+  })
+
+  // Teams for filter
+  const { data: teams } = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => api.get('/teams').then((r) => r.data),
+  })
+
+  // Athletes for filter (from all teams)
+  const { data: allAthletes } = useQuery({
+    queryKey: ['all-athletes'],
+    queryFn: () => api.get('/teams/athletes').then((r) => r.data),
+  })
+
+  const todayPlans = (todayData?.groupPlans ?? []).filter(
     (p: { date: string }) => p.date.split('T')[0] === today,
   )
+
+  const groupPlans = data?.groupPlans?.data ?? []
+  const groupTotal = data?.groupPlans?.total ?? 0
+  const groupTotalPages = data?.groupPlans?.totalPages ?? 1
+  const indPlans = data?.individualPlans?.data ?? []
+  const indTotal = data?.individualPlans?.total ?? 0
+  const indTotalPages = data?.individualPlans?.totalPages ?? 1
+
+  // Generate month options (current month ± 12)
+  const monthOptions = Array.from({ length: 13 }, (_, i) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - 6 + i)
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })
+    return { val, label }
+  })
 
   return (
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ fontWeight: 700, fontSize: '1.25rem' }}>Панель тренера</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Link to="/trainer/plans/new">
-            <button className="btn-primary">+ Груповий план</button>
-          </Link>
-          <Link to="/trainer/plans/new/individual">
-            <button className="btn-secondary">+ Індивідуальний</button>
-          </Link>
+          <Link to="/trainer/plans/new"><button className="btn-primary">+ Груповий план</button></Link>
+          <Link to="/trainer/plans/new/individual"><button className="btn-secondary">+ Індивідуальний</button></Link>
         </div>
       </div>
 
-      {isLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}
-
+      {/* Today's section */}
       <h3 style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Сьогодні ({today})</h3>
-      {!isLoading && todayPlans.length === 0 && (
+      {todayLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}
+      {!todayLoading && todayPlans.length === 0 && (
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
           Немає тренувань на сьогодні.{' '}
           <Link to="/trainer/plans/new">Створити план</Link>
         </p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
-        {todayPlans.map((plan: {
-          id: string
-          title: string | null
-          team: { name: string } | null
-          exerciseGroups: Array<{ id: string; name: string }>
-        }) => (
+        {todayPlans.map((plan: { id: string; title: string | null; team: { name: string } | null; exerciseGroups: Array<{ id: string; name: string }> }) => (
           <div key={plan.id} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontWeight: 600 }}>{plan.title ?? 'Групове тренування'}</div>
-                {plan.team && (
-                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                    {plan.team.name}
-                  </div>
-                )}
+                {plan.team && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{plan.team.name}</div>}
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   {plan.exerciseGroups.map((g) => (
-                    <span
-                      key={g.id}
-                      style={{ fontSize: '0.75rem', background: '#dbeafe', color: '#1e40af', padding: '0.125rem 0.5rem', borderRadius: '9999px' }}
-                    >
-                      {g.name}
-                    </span>
+                    <span key={g.id} style={{ fontSize: '0.75rem', background: '#dbeafe', color: '#1e40af', padding: '0.125rem 0.5rem', borderRadius: '9999px' }}>{g.name}</span>
                   ))}
                 </div>
               </div>
-              <Link to={`/trainer/feedback/${plan.id}`}>
-                <button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Відгуки</button>
-              </Link>
+              <Link to={`/trainer/feedback/${plan.id}`}><button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Відгуки</button></Link>
             </div>
           </div>
         ))}
       </div>
 
-      <h3 style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Всі плани</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-        {(data?.groupPlans ?? []).map((plan: {
-          id: string
-          date: string
-          title: string | null
-          team: { name: string } | null
-        }) => (
-          <div key={plan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
-            <span>
-              <strong style={{ marginRight: '0.5rem' }}>{plan.date.split('T')[0]}</strong>
-              {plan.title ?? 'Груповий план'} — {plan.team?.name}
-            </span>
-            <Link to={`/trainer/feedback/${plan.id}`}>
-              <button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Відгуки</button>
-            </Link>
-          </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '2px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+        {(['upcoming', 'past'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTabReset(t)}
+            style={{
+              fontWeight: 600, fontSize: '0.9375rem', padding: '0.25rem 0.75rem',
+              border: 'none', background: 'none', cursor: 'pointer',
+              color: tab === t ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              borderBottom: tab === t ? '2px solid var(--color-primary)' : '2px solid transparent',
+              marginBottom: -2,
+            }}
+          >
+            {t === 'upcoming' ? 'Майбутні' : 'Минулі'}
+          </button>
         ))}
       </div>
 
-      <h3 style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Індивідуальні плани</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {(data?.individualPlans ?? []).length === 0 && (
-          <p style={{ color: 'var(--color-text-muted)' }}>Немає індивідуальних планів.</p>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <select value={month} onChange={(e) => setMonthReset(e.target.value)} style={{ padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+          <option value="">Всі місяці</option>
+          {monthOptions.map((o) => <option key={o.val} value={o.val}>{o.label}</option>)}
+        </select>
+        <select value={teamId} onChange={(e) => setTeamReset(e.target.value)} style={{ padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+          <option value="">Всі команди</option>
+          {(teams ?? []).map((t: { id: string; name: string }) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select value={athleteId} onChange={(e) => setAthleteReset(e.target.value)} style={{ padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+          <option value="">Всі спортсмени</option>
+          {(allAthletes ?? []).map((a: { id: string; name: string }) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        {(month || teamId || athleteId) && (
+          <button className="btn-secondary" style={{ fontSize: '0.8125rem' }} onClick={() => { setMonthReset(''); setTeamReset(''); setAthleteReset('') }}>
+            Скинути фільтри
+          </button>
         )}
-        {(data?.individualPlans ?? []).map((plan: {
-          id: string
-          weekStart: string
-          athlete: { name: string }
-          days: Array<{ dayOfWeek: number }>
-        }) => (
+      </div>
+
+      {isLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}
+
+      {/* Group plans */}
+      <h3 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+        Групові плани
+        {groupTotal > 0 && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>({groupTotal})</span>}
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        {!isLoading && groupPlans.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Немає планів.</p>}
+        {groupPlans.map((plan: { id: string; date: string; title: string | null; team: { name: string } | null }) => (
           <div key={plan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
             <span>
-              <strong style={{ marginRight: '0.5rem' }}>{plan.weekStart.slice(0, 10)}</strong>
-              {plan.athlete.name}
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginLeft: '0.5rem' }}>
-                {plan.days.length} дн.
-              </span>
+              <strong style={{ marginRight: '0.5rem' }}>{formatDate(plan.date)}</strong>
+              {plan.title ?? 'Груповий план'} — {plan.team?.name}
             </span>
-            <Link to={`/trainer/plans/individual/${plan.id}/edit`}>
-              <button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Редагувати</button>
-            </Link>
+            <Link to={`/trainer/feedback/${plan.id}`}><button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Відгуки</button></Link>
           </div>
         ))}
       </div>
+      <Pagination page={groupPage} totalPages={groupTotalPages} onChange={setGroupPage} />
+
+      {/* Individual plans */}
+      <h3 style={{ fontWeight: 600, marginBottom: '0.5rem', marginTop: '2rem' }}>
+        Індивідуальні плани
+        {indTotal > 0 && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>({indTotal})</span>}
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {!isLoading && indPlans.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Немає індивідуальних планів.</p>}
+        {indPlans.map((plan: { id: string; weekStart: string; athlete: { name: string }; days: Array<{ dayOfWeek: number }> }) => (
+          <div key={plan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
+            <span>
+              <strong style={{ marginRight: '0.5rem' }}>{formatWeekRange(plan.weekStart)}</strong>
+              {plan.athlete.name}
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginLeft: '0.5rem' }}>{plan.days.length} дн.</span>
+            </span>
+            <Link to={`/trainer/plans/individual/${plan.id}/edit`}><button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Редагувати</button></Link>
+          </div>
+        ))}
+      </div>
+      <Pagination page={indPage} totalPages={indTotalPages} onChange={setIndPage} />
     </div>
   )
 }

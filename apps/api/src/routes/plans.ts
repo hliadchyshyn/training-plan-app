@@ -113,39 +113,121 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
     },
   )
 
-  // Get trainer's plans
+  // Get trainer's plans (paginated)
   fastify.get(
     '/',
     { preHandler: fastify.requireRole(['TRAINER', 'ADMIN']) },
     async (request) => {
       const trainerId = request.user.sub
-      const { date, type } = request.query as { date?: string; type?: string }
+      const q = request.query as {
+        date?: string
+        tab?: 'upcoming' | 'past'
+        teamId?: string
+        athleteId?: string
+        month?: string     // YYYY-MM
+        groupPage?: string
+        indPage?: string
+        limit?: string
+      }
 
-      const groupPlans = await fastify.prisma.trainingPlan.findMany({
-        where: {
-          trainerId,
-          ...(date ? { date: new Date(date) } : {}),
-          ...(type === 'GROUP' ? { type: 'GROUP' } : {}),
-        },
-        include: {
-          exerciseGroups: { orderBy: { order: 'asc' } },
-          team: { select: { id: true, name: true } },
-        },
-        orderBy: { date: 'desc' },
-      })
+      const limit = Math.min(parseInt(q.limit ?? '20', 10), 100)
+      const groupPage = Math.max(parseInt(q.groupPage ?? '1', 10), 1)
+      const indPage = Math.max(parseInt(q.indPage ?? '1', 10), 1)
 
-      const individualPlans = await fastify.prisma.individualPlan.findMany({
-        where: {
-          trainerId,
-        },
-        include: {
-          days: { orderBy: { dayOfWeek: 'asc' } },
-          athlete: { select: { id: true, name: true, email: true } },
-        },
-        orderBy: { weekStart: 'desc' },
-      })
+      const today = new Date(); today.setHours(0, 0, 0, 0)
 
-      return { groupPlans, individualPlans }
+      // Date range filter
+      let groupDateWhere: Record<string, Date> = {}
+      let indDateWhere: Record<string, Date> = {}
+
+      if (q.month) {
+        const [y, m] = q.month.split('-').map(Number)
+        const from = new Date(y, m - 1, 1)
+        const to = new Date(y, m, 1)
+        groupDateWhere = { gte: from, lt: to }
+        indDateWhere = { gte: from, lt: to }
+      } else if (q.tab === 'past') {
+        groupDateWhere = { lt: today }
+        indDateWhere = { lt: today }
+      } else if (!q.date) {
+        // default: upcoming
+        groupDateWhere = { gte: today }
+        indDateWhere = { gte: today }
+      }
+
+      // Single-date filter (used by dashboard "today")
+      const groupWhere = {
+        trainerId,
+        ...(q.date ? { date: new Date(q.date) } : Object.keys(groupDateWhere).length ? { date: groupDateWhere } : {}),
+        ...(q.teamId ? { teamId: q.teamId } : {}),
+      }
+
+      const indWhere = {
+        trainerId,
+        ...(Object.keys(indDateWhere).length ? { weekStart: indDateWhere } : {}),
+        ...(q.athleteId ? { athleteId: q.athleteId } : {}),
+      }
+
+      // If single-date query (legacy dashboard), skip pagination
+      if (q.date) {
+        const groupPlans = await fastify.prisma.trainingPlan.findMany({
+          where: groupWhere,
+          include: {
+            exerciseGroups: { orderBy: { order: 'asc' } },
+            team: { select: { id: true, name: true } },
+          },
+          orderBy: { date: 'desc' },
+        })
+        const individualPlans = await fastify.prisma.individualPlan.findMany({
+          where: { trainerId },
+          include: {
+            days: { orderBy: { dayOfWeek: 'asc' } },
+            athlete: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { weekStart: 'desc' },
+        })
+        return { groupPlans, individualPlans }
+      }
+
+      const [groupData, groupTotal, indData, indTotal] = await Promise.all([
+        fastify.prisma.trainingPlan.findMany({
+          where: groupWhere,
+          include: {
+            exerciseGroups: { orderBy: { order: 'asc' } },
+            team: { select: { id: true, name: true } },
+          },
+          orderBy: { date: q.tab === 'past' ? 'desc' : 'asc' },
+          skip: (groupPage - 1) * limit,
+          take: limit,
+        }),
+        fastify.prisma.trainingPlan.count({ where: groupWhere }),
+        fastify.prisma.individualPlan.findMany({
+          where: indWhere,
+          include: {
+            days: { orderBy: { dayOfWeek: 'asc' } },
+            athlete: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { weekStart: q.tab === 'past' ? 'desc' : 'asc' },
+          skip: (indPage - 1) * limit,
+          take: limit,
+        }),
+        fastify.prisma.individualPlan.count({ where: indWhere }),
+      ])
+
+      return {
+        groupPlans: {
+          data: groupData,
+          total: groupTotal,
+          page: groupPage,
+          totalPages: Math.ceil(groupTotal / limit),
+        },
+        individualPlans: {
+          data: indData,
+          total: indTotal,
+          page: indPage,
+          totalPages: Math.ceil(indTotal / limit),
+        },
+      }
     },
   )
 

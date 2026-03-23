@@ -42,6 +42,18 @@ async function main() {
     console.log(`Admin exists: ${email}`)
   }
 
+  // ── Trainer ────────────────────────────────────────────
+  let trainer = await prisma.user.findFirst({ where: { email: { equals: 'trainer@test.com', mode: 'insensitive' } } })
+  if (!trainer) {
+    const passwordHash = await bcrypt.hash('changeme123', 10)
+    trainer = await prisma.user.create({
+      data: { email: 'trainer@test.com', name: 'Олексій Тренер', passwordHash, role: 'TRAINER' },
+    })
+    console.log('Trainer created: trainer@test.com')
+  } else {
+    console.log('Trainer exists: trainer@test.com')
+  }
+
   // ── Test athletes ──────────────────────────────────────
   const athletesSeed = [
     { email: 'ivan.koval@test.com', name: 'Іван Коваль' },
@@ -60,9 +72,9 @@ async function main() {
   )
 
   // ── Track&Speed team ───────────────────────────────────
-  let team = await prisma.trainerTeam.findFirst({ where: { trainerId: admin.id, name: 'Track&Speed' } })
+  let team = await prisma.trainerTeam.findFirst({ where: { trainerId: trainer.id, name: 'Track&Speed' } })
   if (!team) {
-    team = await prisma.trainerTeam.create({ data: { trainerId: admin.id, name: 'Track&Speed' } })
+    team = await prisma.trainerTeam.create({ data: { trainerId: trainer.id, name: 'Track&Speed' } })
     console.log('Team Track&Speed created')
   }
 
@@ -114,12 +126,12 @@ async function main() {
   for (const def of groupPlanDefs) {
     const date = addDays(thisMonday, def.daysOffset)
     const existing = await prisma.trainingPlan.findFirst({
-      where: { trainerId: admin.id, date, title: def.title, type: 'GROUP' },
+      where: { trainerId: trainer.id, date, title: def.title, type: 'GROUP' },
     })
     if (!existing) {
       await prisma.trainingPlan.create({
         data: {
-          trainerId: admin.id,
+          trainerId: trainer.id,
           date,
           type: 'GROUP',
           title: def.title,
@@ -163,12 +175,12 @@ async function main() {
   for (const def of indPlanDefs) {
     const weekStart = getMonday(def.weekOffset)
     const existing = await prisma.individualPlan.findFirst({
-      where: { trainerId: admin.id, athleteId: athletes[0].id, weekStart },
+      where: { trainerId: trainer.id, athleteId: athletes[0].id, weekStart },
     })
     if (!existing) {
       await prisma.individualPlan.create({
         data: {
-          trainerId: admin.id,
+          trainerId: trainer.id,
           athleteId: athletes[0].id,
           weekStart,
           days: { create: def.days.map((d) => ({ dayOfWeek: d.dow, rawText: d.text })) },
@@ -179,7 +191,8 @@ async function main() {
   }
 
   console.log('\nSeed complete.')
-  console.log('Test athletes: ivan.koval@test.com / olena.bondar@test.com (password: changeme123)')
+  console.log('Trainer:  trainer@test.com / changeme123')
+  console.log('Athletes: ivan.koval@test.com / olena.bondar@test.com (password: changeme123)')
 }
 
 main()

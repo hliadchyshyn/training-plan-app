@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
+import { formatWeekRange } from '../../utils/date.js'
 
 const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
 
@@ -62,7 +63,7 @@ export function EditIndividualPlanPage() {
         Редагувати план
       </h2>
       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-        {plan.athlete.name} — тиждень {plan.weekStart.slice(0, 10)}
+        {plan.athlete.name} — тиждень {formatWeekRange(plan.weekStart)}
       </p>
 
       <form onSubmit={handleSubmit}>
