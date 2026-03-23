@@ -140,7 +140,7 @@ export function CreateGroupPlanPage() {
                 Перевірити парсинг
               </button>
             )}
-            {group.preview && (
+            {!!group.preview && (
               <pre
                 style={{
                   marginTop: '0.5rem',

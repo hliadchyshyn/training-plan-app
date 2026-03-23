@@ -3,7 +3,7 @@ services:
     name: training-plan-api
     runtime: node
     rootDir: .
-    buildCommand: npm ci && npm run build --workspace=apps/api && npx prisma generate --schema=apps/api/prisma/schema.prisma
+    buildCommand: npm ci --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build --workspace=apps/api
     startCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && node apps/api/dist/index.js
     envVars:
       - key: NODE_ENV

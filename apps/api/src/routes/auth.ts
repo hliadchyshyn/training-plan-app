@@ -26,7 +26,8 @@ type FastifyWithJwt = Parameters<FastifyPluginAsync>[0]
 function signTokens(fastify: FastifyWithJwt, sub: string, email: string, role: string) {
   const payload = { sub, email, role }
   const accessToken = fastify.jwt.sign(payload, { expiresIn: '15m' })
-  const refreshToken = fastify.jwt.sign(payload, { secret: REFRESH_SECRET, expiresIn: '7d' })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const refreshToken = fastify.jwt.sign(payload, { secret: REFRESH_SECRET, expiresIn: '7d' } as any)
   return { accessToken, refreshToken }
 }
 
@@ -85,7 +86,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     let payload: { sub: string; email: string; role: string }
     try {
-      payload = fastify.jwt.verify(token, { secret: REFRESH_SECRET }) as typeof payload
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      payload = fastify.jwt.verify(token, { secret: REFRESH_SECRET } as any) as typeof payload
     } catch {
       return reply.status(401).send({ error: 'Invalid refresh token' })
     }
