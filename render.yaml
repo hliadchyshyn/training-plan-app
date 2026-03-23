@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: training-plan-api
+    runtime: node
+    rootDir: .
+    buildCommand: npm ci && npm run build --workspace=apps/api && npx prisma generate --schema=apps/api/prisma/schema.prisma
+    startCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && node apps/api/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: training-plan-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false  # заповниш вручну після деплою фронту
+
+  - type: web
+    name: training-plan-web
+    runtime: static
+    rootDir: .
+    buildCommand: npm ci && npm run build --workspace=apps/web
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false  # заповниш вручну: https://training-plan-api.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: training-plan-db
+    databaseName: training_plan
+    user: training_plan
+    plan: free

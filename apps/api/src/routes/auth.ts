@@ -30,12 +30,15 @@ function signTokens(fastify: FastifyWithJwt, sub: string, email: string, role: s
   return { accessToken, refreshToken }
 }
 
+const IS_PROD = process.env.NODE_ENV === 'production'
+
 function setRefreshCookie(reply: FastifyReply, token: string) {
   reply.setCookie('refreshToken', token, {
     httpOnly: true,
     path: '/api/auth/refresh',
     maxAge: COOKIE_MAX_AGE,
-    sameSite: 'lax',
+    sameSite: IS_PROD ? 'none' : 'lax',
+    secure: IS_PROD,
   })
 }
 

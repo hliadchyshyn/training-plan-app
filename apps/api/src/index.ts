@@ -12,7 +12,7 @@ import { athleteRoutes } from './routes/athlete.js'
 const server = Fastify({ logger: true })
 
 await server.register(cors, {
-  origin: true,
+  origin: process.env.FRONTEND_URL ?? true,
   credentials: true,
 })
 await server.register(cookie)
