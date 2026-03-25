@@ -117,3 +117,38 @@ label {
 .badge-completed { background: #dcfce7; color: #15803d; }
 .badge-partial { background: #fef9c3; color: #a16207; }
 .badge-skipped { background: #fee2e2; color: #b91c1c; }
+
+/* ── Mobile-first responsive ── */
+@media (max-width: 48em) {
+  .page {
+    padding: 1rem 0.75rem;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom) + 1rem);
+  }
+
+  .card {
+    padding: 0.75rem;
+  }
+
+  /* Prevent horizontal overflow */
+  body { overflow-x: hidden; }
+
+  /* Touch-friendly buttons */
+  button {
+    min-height: 40px;
+  }
+
+  /* Stack flex rows on narrow screens */
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+}
+
+/* Safe area for iOS notch / home indicator */
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 48em) {
+    .page {
+      padding-bottom: calc(56px + env(safe-area-inset-bottom) + 1rem);
+    }
+  }
+}

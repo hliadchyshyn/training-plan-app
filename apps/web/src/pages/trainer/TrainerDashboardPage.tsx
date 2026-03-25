@@ -91,16 +91,23 @@ export function TrainerDashboardPage() {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontWeight: 700, fontSize: '1.25rem' }}>Панель тренера</h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Link to="/trainer/plans/new"><button className="btn-primary">+ Груповий план</button></Link>
-          <Link to="/trainer/plans/new/individual"><button className="btn-secondary">+ Індивідуальний</button></Link>
+      <div style={{
+        marginBottom: '1.25rem', textAlign: 'center',
+        position: 'sticky', top: 0, zIndex: 10,
+        background: 'var(--color-bg)',
+        padding: '0.75rem 0',
+        marginLeft: '-0.75rem', marginRight: '-0.75rem', paddingLeft: '0.75rem', paddingRight: '0.75rem',
+        borderBottom: '1px solid var(--color-border)',
+      }}>
+        <h2 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.5rem' }}>Панель тренера</h2>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+          <Link to="/trainer/plans/new"><button className="btn-primary" style={{ fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>+ Груповий план</button></Link>
+          <Link to="/trainer/plans/new/individual"><button className="btn-secondary" style={{ fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>+ Індивідуальний</button></Link>
         </div>
       </div>
 
       {/* Today's section */}
-      <h3 style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Сьогодні ({today})</h3>
+      <h3 style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9375rem', color: 'var(--color-text-muted)' }}>Сьогодні ({today})</h3>
       {todayLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}
       {!todayLoading && todayPlans.length === 0 && (
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
@@ -110,25 +117,23 @@ export function TrainerDashboardPage() {
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
         {todayPlans.map((plan: { id: string; title: string | null; team: { name: string } | null; exerciseGroups: Array<{ id: string; name: string }> }) => (
-          <div key={plan.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{plan.title ?? 'Групове тренування'}</div>
-                {plan.team && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{plan.team.name}</div>}
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                  {plan.exerciseGroups.map((g) => (
-                    <span key={g.id} style={{ fontSize: '0.75rem', background: '#dbeafe', color: '#1e40af', padding: '0.125rem 0.5rem', borderRadius: '9999px' }}>{g.name}</span>
-                  ))}
-                </div>
-              </div>
-              <Link to={`/trainer/feedback/${plan.id}`}><button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Відгуки</button></Link>
+          <Link key={plan.id} to={`/trainer/feedback/${plan.id}`} className="card" style={{ display: 'block', textDecoration: 'none', color: 'var(--color-text)' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--color-primary)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--color-border)' }}
+          >
+            <div style={{ fontWeight: 600 }}>{plan.title ?? 'Групове тренування'}</div>
+            {plan.team && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{plan.team.name}</div>}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              {plan.exerciseGroups.map((g) => (
+                <span key={g.id} style={{ fontSize: '0.75rem', background: '#dbeafe', color: '#1e40af', padding: '0.125rem 0.5rem', borderRadius: '9999px' }}>{g.name}</span>
+              ))}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '2px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '2px solid var(--color-border)', paddingBottom: '0.5rem', justifyContent: 'center' }}>
         {(['upcoming', 'past'] as const).map((t) => (
           <button
             key={t}
@@ -147,21 +152,23 @@ export function TrainerDashboardPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <select value={month} onChange={(e) => setMonthReset(e.target.value)} style={{ padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
-          <option value="">Всі місяці</option>
-          {monthOptions.map((o) => <option key={o.val} value={o.val}>{o.label}</option>)}
-        </select>
-        <select value={teamId} onChange={(e) => setTeamReset(e.target.value)} style={{ padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
-          <option value="">Всі команди</option>
-          {(teams ?? []).map((t: { id: string; name: string }) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        <select value={athleteId} onChange={(e) => setAthleteReset(e.target.value)} style={{ padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
-          <option value="">Всі спортсмени</option>
-          {(allAthletes ?? []).map((a: { id: string; name: string }) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <select value={month} onChange={(e) => setMonthReset(e.target.value)} style={{ flex: '1 1 140px', padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+            <option value="">Всі місяці</option>
+            {monthOptions.map((o) => <option key={o.val} value={o.val}>{o.label}</option>)}
+          </select>
+          <select value={teamId} onChange={(e) => setTeamReset(e.target.value)} style={{ flex: '1 1 140px', padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+            <option value="">Всі команди</option>
+            {(teams ?? []).map((t: { id: string; name: string }) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <select value={athleteId} onChange={(e) => setAthleteReset(e.target.value)} style={{ flex: '1 1 140px', padding: '0.375rem 0.5rem', borderRadius: 6, border: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+            <option value="">Всі спортсмени</option>
+            {(allAthletes ?? []).map((a: { id: string; name: string }) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
         {(month || teamId || athleteId) && (
-          <button className="btn-secondary" style={{ fontSize: '0.8125rem' }} onClick={() => { setMonthReset(''); setTeamReset(''); setAthleteReset('') }}>
+          <button className="btn-secondary" style={{ fontSize: '0.8125rem', alignSelf: 'flex-start' }} onClick={() => { setMonthReset(''); setTeamReset(''); setAthleteReset('') }}>
             Скинути фільтри
           </button>
         )}
@@ -177,13 +184,16 @@ export function TrainerDashboardPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
         {!isLoading && groupPlans.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Немає планів.</p>}
         {groupPlans.map((plan: { id: string; date: string; title: string | null; team: { name: string } | null }) => (
-          <div key={plan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
-            <span>
-              <strong style={{ marginRight: '0.5rem' }}>{formatDate(plan.date)}</strong>
-              {plan.title ?? 'Груповий план'} — {plan.team?.name}
-            </span>
-            <Link to={`/trainer/feedback/${plan.id}`}><button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Відгуки</button></Link>
-          </div>
+          <Link key={plan.id} to={`/trainer/feedback/${plan.id}`} style={{
+            display: 'block', padding: '0.5rem 0.25rem', borderBottom: '1px solid var(--color-border)',
+            fontSize: '0.875rem', color: 'var(--color-text)', textDecoration: 'none',
+          }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-primary)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text)' }}
+          >
+            <strong style={{ marginRight: '0.375rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{formatDate(plan.date)}</strong>
+            {plan.title ?? 'Груповий план'}{plan.team?.name ? ` — ${plan.team.name}` : ''}
+          </Link>
         ))}
       </div>
       <Pagination page={groupPage} totalPages={groupTotalPages} onChange={setGroupPage} />
@@ -196,14 +206,17 @@ export function TrainerDashboardPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {!isLoading && indPlans.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Немає індивідуальних планів.</p>}
         {indPlans.map((plan: { id: string; weekStart: string; athlete: { name: string }; days: Array<{ dayOfWeek: number }> }) => (
-          <div key={plan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
-            <span>
-              <strong style={{ marginRight: '0.5rem' }}>{formatWeekRange(plan.weekStart)}</strong>
-              {plan.athlete.name}
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginLeft: '0.5rem' }}>{plan.days.length} дн.</span>
-            </span>
-            <Link to={`/trainer/plans/individual/${plan.id}/edit`}><button className="btn-secondary" style={{ fontSize: '0.8125rem' }}>Редагувати</button></Link>
-          </div>
+          <Link key={plan.id} to={`/trainer/plans/individual/${plan.id}/edit`} style={{
+            display: 'block', padding: '0.5rem 0.25rem', borderBottom: '1px solid var(--color-border)',
+            fontSize: '0.875rem', color: 'var(--color-text)', textDecoration: 'none',
+          }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-primary)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text)' }}
+          >
+            <strong style={{ marginRight: '0.375rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{formatWeekRange(plan.weekStart)}</strong>
+            {plan.athlete.name}
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginLeft: '0.375rem' }}>{plan.days.length} дн.</span>
+          </Link>
         ))}
       </div>
       <Pagination page={indPage} totalPages={indTotalPages} onChange={setIndPage} />

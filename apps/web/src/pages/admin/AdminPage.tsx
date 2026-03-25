@@ -58,96 +58,60 @@ export function AdminPage() {
 
   return (
     <div className="page">
-      <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '1.5rem' }}>
-        Адміністрування користувачів
-      </h2>
+      <h2 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '1.25rem' }}>Користувачі</h2>
 
       {isLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}
 
-      <div className="card" style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem' }}>
-                Ім'я
-              </th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem' }}>
-                Email
-              </th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem' }}>
-                Роль
-              </th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem' }}>
-                Зареєстрований
-              </th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem' }}>
-                Пароль
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <td style={{ padding: '0.75rem 0.5rem', fontSize: '0.875rem' }}>{user.name}</td>
-                <td style={{ padding: '0.75rem 0.5rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                  {user.email}
-                </td>
-                <td style={{ padding: '0.75rem 0.5rem' }}>
-                  <select
-                    value={user.role}
-                    onChange={(e) => updateRole.mutate({ id: user.id, role: e.target.value as Role })}
-                    style={{ width: 'auto', fontSize: '0.875rem' }}
-                  >
-                    {(['ATHLETE', 'TRAINER', 'ADMIN'] as Role[]).map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td style={{ padding: '0.75rem 0.5rem', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {users.map((user) => (
+          <div key={user.id} className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.625rem' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{user.name}</div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
                   {new Date(user.createdAt).toLocaleDateString('uk-UA')}
-                </td>
-                <td style={{ padding: '0.75rem 0.5rem' }}>
-                  {resetingId === user.id ? (
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <input
-                        type="password"
-                        placeholder="Новий пароль"
-                        value={newPassword}
-                        onChange={(e) => { setNewPassword(e.target.value); setResetError('') }}
-                        style={{ width: 160, fontSize: '0.875rem' }}
-                        autoFocus
-                      />
-                      <button
-                        className="btn-primary"
-                        style={{ fontSize: '0.8125rem', padding: '0.25rem 0.75rem' }}
-                        onClick={() => handleResetSubmit(user.id)}
-                        disabled={resetPassword.isPending}
-                      >
-                        Зберегти
-                      </button>
-                      <button
-                        style={{ fontSize: '0.8125rem', padding: '0.25rem 0.5rem', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
-                        onClick={() => { setResetingId(null); setNewPassword(''); setResetError('') }}
-                      >
-                        ✕
-                      </button>
-                      {resetError && <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', width: '100%' }}>{resetError}</span>}
-                    </div>
-                  ) : (
-                    <button
-                      style={{ fontSize: '0.8125rem', padding: '0.25rem 0.5rem', background: 'none', border: '1px solid var(--color-border)', borderRadius: 4, cursor: 'pointer', color: 'var(--color-text-muted)' }}
-                      onClick={() => { setResetingId(user.id); setNewPassword(''); setResetError('') }}
-                    >
-                      Скинути пароль
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+              <select
+                value={user.role}
+                onChange={(e) => updateRole.mutate({ id: user.id, role: e.target.value as Role })}
+                style={{ width: 'auto', fontSize: '0.8125rem', flexShrink: 0 }}
+              >
+                {(['ATHLETE', 'TRAINER', 'ADMIN'] as Role[]).map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
+              </select>
+            </div>
+
+            {resetingId === user.id ? (
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="password"
+                  placeholder="Новий пароль (мін. 8)"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setResetError('') }}
+                  style={{ flex: 1, minWidth: 140, fontSize: '0.875rem' }}
+                  autoFocus
+                />
+                <button className="btn-primary" style={{ fontSize: '0.8125rem', padding: '0.375rem 0.75rem' }} onClick={() => handleResetSubmit(user.id)} disabled={resetPassword.isPending}>
+                  Зберегти
+                </button>
+                <button style={{ fontSize: '0.8125rem', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0.375rem' }} onClick={() => { setResetingId(null); setNewPassword(''); setResetError('') }}>
+                  ✕
+                </button>
+                {resetError && <span style={{ color: 'var(--color-danger)', fontSize: '0.8125rem', width: '100%' }}>{resetError}</span>}
+              </div>
+            ) : (
+              <button
+                style={{ fontSize: '0.8125rem', padding: '0.25rem 0.625rem', background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                onClick={() => { setResetingId(user.id); setNewPassword(''); setResetError('') }}
+              >
+                Скинути пароль
+              </button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

@@ -43,7 +43,7 @@ export function CreateIndividualPlanPage() {
         Індивідуальний план
       </h2>
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: '1rem', marginBottom: '1rem' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label>Спортсмен</label>
             <select value={athleteId} onChange={(e) => setAthleteId(e.target.value)} required>
@@ -68,36 +68,27 @@ export function CreateIndividualPlanPage() {
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-            <thead>
-              <tr>
-                {DAY_NAMES.map((n, i) => (
-                  <th key={i} style={{ padding: '0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem', borderBottom: '2px solid var(--color-border)', width: `${100 / 7}%` }}>
-                    {n}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                {DAY_NAMES.map((_, idx) => {
-                  const dow = idx + 1
-                  return (
-                    <td key={idx} style={{ padding: '0.5rem', verticalAlign: 'top', borderBottom: '1px solid var(--color-border)' }}>
-                      <textarea
-                        rows={6}
-                        value={days[dow] ?? ''}
-                        onChange={(e) => setDays((d) => ({ ...d, [dow]: e.target.value }))}
-                        placeholder="Введіть тренування..."
-                        style={{ resize: 'vertical', fontSize: '0.8125rem', minHeight: 100 }}
-                      />
-                    </td>
-                  )
-                })}
-              </tr>
-            </tbody>
-          </table>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 180px), 1fr))',
+          gap: '0.75rem',
+          marginBottom: '1rem',
+        }}>
+          {DAY_NAMES.map((name, idx) => {
+            const dow = idx + 1
+            return (
+              <div key={idx}>
+                <label style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.375rem' }}>{name}</label>
+                <textarea
+                  rows={5}
+                  value={days[dow] ?? ''}
+                  onChange={(e) => setDays((d) => ({ ...d, [dow]: e.target.value }))}
+                  placeholder="Введіть тренування..."
+                  style={{ resize: 'vertical', fontSize: '0.8125rem' }}
+                />
+              </div>
+            )
+          })}
         </div>
 
         {error && <p className="error" style={{ marginBottom: '0.75rem' }}>{error}</p>}

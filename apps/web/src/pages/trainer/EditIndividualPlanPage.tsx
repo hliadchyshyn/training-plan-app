@@ -21,12 +21,11 @@ export function EditIndividualPlanPage() {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['trainer-plans'],
-    queryFn: () => api.get('/plans').then((r) => r.data),
+  const { data: plan, isLoading } = useQuery<IndPlan>({
+    queryKey: ['individual-plan', id],
+    queryFn: () => api.get(`/plans/individual/${id}`).then((r) => r.data),
+    enabled: !!id,
   })
-
-  const plan: IndPlan | undefined = data?.individualPlans?.find((p: IndPlan) => p.id === id)
 
   useEffect(() => {
     if (!plan) return
@@ -34,7 +33,7 @@ export function EditIndividualPlanPage() {
     const dayMap: Record<number, string> = {}
     plan.days.forEach((d) => { dayMap[d.dayOfWeek] = d.rawText ?? '' })
     setDays(dayMap)
-  }, [plan?.id])
+  }, [plan?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const updatePlan = useMutation({
     mutationFn: (body: unknown) => api.put(`/plans/individual/${id}`, body),
@@ -57,10 +56,12 @@ export function EditIndividualPlanPage() {
 
   return (
     <div className="page">
-      <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.25rem' }}>Редагувати план</h2>
-      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-        {plan.athlete.name} — тиждень {formatWeekRange(plan.weekStart)}
-      </p>
+      <div style={{ marginBottom: '1.25rem' }}>
+        <h2 style={{ fontWeight: 700, fontSize: '1.125rem' }}>{plan.athlete.name}</h2>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+          {formatWeekRange(plan.weekStart)}
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -68,36 +69,27 @@ export function EditIndividualPlanPage() {
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-            <thead>
-              <tr>
-                {DAY_NAMES.map((n, i) => (
-                  <th key={i} style={{ padding: '0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.875rem', borderBottom: '2px solid var(--color-border)', width: `${100 / 7}%` }}>
-                    {n}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                {DAY_NAMES.map((_, idx) => {
-                  const dow = idx + 1
-                  return (
-                    <td key={idx} style={{ padding: '0.5rem', verticalAlign: 'top', borderBottom: '1px solid var(--color-border)' }}>
-                      <textarea
-                        rows={6}
-                        value={days[dow] ?? ''}
-                        onChange={(e) => setDays((d) => ({ ...d, [dow]: e.target.value }))}
-                        placeholder="Тренування..."
-                        style={{ resize: 'vertical', fontSize: '0.8125rem', minHeight: 100 }}
-                      />
-                    </td>
-                  )
-                })}
-              </tr>
-            </tbody>
-          </table>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 180px), 1fr))',
+          gap: '0.75rem',
+          marginBottom: '1rem',
+        }}>
+          {DAY_NAMES.map((name, idx) => {
+            const dow = idx + 1
+            return (
+              <div key={idx}>
+                <label style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.375rem' }}>{name}</label>
+                <textarea
+                  rows={5}
+                  value={days[dow] ?? ''}
+                  onChange={(e) => setDays((d) => ({ ...d, [dow]: e.target.value }))}
+                  placeholder="Тренування..."
+                  style={{ resize: 'vertical', fontSize: '0.8125rem' }}
+                />
+              </div>
+            )
+          })}
         </div>
 
         {error && <p className="error" style={{ marginBottom: '0.75rem' }}>{error}</p>}

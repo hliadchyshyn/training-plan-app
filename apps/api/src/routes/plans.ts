@@ -275,6 +275,21 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
     },
   )
 
+  fastify.get(
+    '/individual/:id',
+    { preHandler: fastify.requireRole(['TRAINER', 'ADMIN']) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const trainerId = request.user.sub
+      const plan = await fastify.prisma.individualPlan.findUnique({
+        where: { id },
+        include: { athlete: { select: ATHLETE_SELECT }, days: { orderBy: { dayOfWeek: 'asc' } } },
+      })
+      if (!plan || plan.trainerId !== trainerId) return reply.status(404).send({ error: 'Plan not found' })
+      return plan
+    },
+  )
+
   fastify.put(
     '/individual/:id',
     { preHandler: fastify.requireRole(['TRAINER', 'ADMIN']) },

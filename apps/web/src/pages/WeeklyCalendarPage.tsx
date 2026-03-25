@@ -154,12 +154,19 @@ export function WeeklyCalendarPage() {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
-        <button className="btn-secondary" onClick={() => changeWeek(-7)}>← Попередній</button>
-        <h2 style={{ fontWeight: 700, fontSize: '1.125rem', flex: 1, textAlign: 'center' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem',
+        position: 'sticky', top: 0, zIndex: 10,
+        background: 'var(--color-bg)',
+        padding: '0.75rem 0',
+        marginLeft: '-0.75rem', marginRight: '-0.75rem', paddingLeft: '0.75rem', paddingRight: '0.75rem',
+        borderBottom: '1px solid var(--color-border)',
+      }}>
+        <button className="btn-secondary" onClick={() => changeWeek(-7)} style={{ padding: '0.5rem 0.625rem', flexShrink: 0 }}>←</button>
+        <h2 style={{ fontWeight: 700, fontSize: '1rem', flex: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
           {data?.weekStart && formatWeekRange(data.weekStart)}
         </h2>
-        <button className="btn-secondary" onClick={() => changeWeek(7)}>Наступний →</button>
+        <button className="btn-secondary" onClick={() => changeWeek(7)} style={{ padding: '0.5rem 0.625rem', flexShrink: 0 }}>→</button>
       </div>
 
       {!isLoading && (groupPlans.length > 0 || indPlans.length > 0) && (
