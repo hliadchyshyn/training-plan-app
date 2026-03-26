@@ -2,6 +2,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, IND_PLAN_DAYS_INCLUDE } from '../utils/db.js'
 
+function serializeStrava(act: { stravaId: bigint; [k: string]: unknown } | null) {
+  return act ? { ...act, stravaId: act.stravaId.toString() } : null
+}
+
 function parseDistanceMeters(str: string): number {
   const m = str.match(/(\d+(?:\.\d+)?)\s*(км|km|м|m)/i)
   if (!m) return 0
@@ -94,7 +98,7 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/plans/individual', async (request) => {
     const athleteId = request.user.sub
-    return fastify.prisma.individualPlan.findMany({
+    const plans = await fastify.prisma.individualPlan.findMany({
       where: { athleteId },
       include: {
         days: {
@@ -112,6 +116,16 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       },
       orderBy: { weekStart: 'asc' },
     })
+    return plans.map((p) => ({
+      ...p,
+      days: p.days.map((d) => ({
+        ...d,
+        sessions: d.sessions.map((s) => ({
+          ...s,
+          stravaActivity: serializeStrava(s.stravaActivity as { stravaId: bigint; [k: string]: unknown } | null),
+        })),
+      })),
+    }))
   })
 
   fastify.get('/plans/group/:id', async (request, reply) => {
@@ -135,7 +149,13 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     })
     if (!member) return reply.status(403).send({ error: 'Forbidden' })
 
-    return plan
+    return {
+      ...plan,
+      sessions: plan.sessions.map((s) => ({
+        ...s,
+        stravaActivity: serializeStrava(s.stravaActivity as { stravaId: bigint; [k: string]: unknown } | null),
+      })),
+    }
   })
 
   fastify.post('/sessions', async (request, reply) => {
