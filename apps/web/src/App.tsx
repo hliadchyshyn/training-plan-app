@@ -12,7 +12,19 @@ import { TeamManagementPage } from './pages/trainer/TeamManagementPage.js'
 import { FeedbackSummaryPage } from './pages/trainer/FeedbackSummaryPage.js'
 import { EditIndividualPlanPage } from './pages/trainer/EditIndividualPlanPage.js'
 import { AdminPage } from './pages/admin/AdminPage.js'
+import { StravaConnectPage } from './pages/StravaConnectPage.js'
+import { StravaCallbackPage } from './pages/StravaCallbackPage.js'
 import { Layout } from './components/Layout.js'
+
+function NotFoundPage() {
+  return (
+    <div className="page" style={{ textAlign: 'center', paddingTop: '4rem' }}>
+      <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>404</div>
+      <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>Сторінку не знайдено</p>
+      <a href="/" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>← На головну</a>
+    </div>
+  )
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
@@ -33,6 +45,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/404" element={<NotFoundPage />} />
 
         <Route
           element={
@@ -94,6 +107,9 @@ export default function App() {
             }
           />
 
+          <Route path="/strava/connect" element={<StravaConnectPage />} />
+          <Route path="/strava/connected" element={<StravaCallbackPage />} />
+
           <Route
             path="/admin"
             element={
@@ -103,6 +119,7 @@ export default function App() {
             }
           />
         </Route>
+        <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
     </BrowserRouter>
   )

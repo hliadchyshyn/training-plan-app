@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.js'
 import { WorkoutCard } from '../components/WorkoutCard.js'
 import { FeedbackForm } from '../components/FeedbackForm.js'
+import { StravaActivityChip } from '../components/StravaActivityChip.js'
 import { STATUS_LABELS } from '../utils/constants.js'
 import type { FeedbackStatus, ExerciseGroup, Session } from '../types/common.js'
 
@@ -43,23 +44,18 @@ export function GroupPlanDetailPage() {
     },
   })
 
-  if (isLoading) return <div className="page">Завантаження...</div>
-  if (!plan) return <div className="page">План не знайдено</div>
+  if (isLoading) return <div className="page"><p className="page-loading">Завантаження...</p></div>
+  if (!plan) return <div className="page"><p className="page-empty">План не знайдено</p></div>
 
   const planDate = new Date(plan.date).toLocaleDateString('uk-UA', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
   const mySession = plan.sessions[0]
+  const stravaActivity = (mySession as { stravaActivity?: { id: string; stravaId: string; name: string; type: string; startDateLocal: string; distance: number; movingTime: number; averageHeartrate?: number | null; maxHeartrate?: number | null; totalElevationGain?: number | null; sessionId?: string | null } } | undefined)?.stravaActivity ?? null
 
   return (
     <div className="page">
-      <button
-        className="btn-secondary"
-        style={{ fontSize: '0.875rem', marginBottom: '1rem', padding: '0.25rem 0.75rem' }}
-        onClick={() => navigate(-1)}
-      >
-        ← Назад
-      </button>
+      <button className="btn-back" onClick={() => navigate(-1)}>← Назад</button>
 
       <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.25rem' }}>
         {plan.title ?? 'Групове тренування'}
@@ -75,7 +71,7 @@ export function GroupPlanDetailPage() {
       )}
 
       {mySession?.feedback && (
-        <div className="card" style={{ marginBottom: '1.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+        <div className="card card-success" style={{ marginBottom: '1.5rem' }}>
           <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Відгук збережено</p>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <span className={`badge badge-${mySession.feedback.status.toLowerCase()}`}>
@@ -88,6 +84,11 @@ export function GroupPlanDetailPage() {
               </span>
             )}
           </div>
+          {stravaActivity && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <StravaActivityChip activity={{ ...stravaActivity, stravaId: stravaActivity.stravaId.toString() }} />
+            </div>
+          )}
         </div>
       )}
 

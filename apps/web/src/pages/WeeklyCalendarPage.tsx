@@ -1,15 +1,13 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
 import { calcVolumeKm } from '../utils/volume.js'
 import { formatDate, formatWeekRange, toLocalDateStr } from '../utils/date.js'
-import { DAY_NAMES } from '../utils/constants.js'
-import type { FeedbackStatus } from '../types/common.js'
+import { DAY_NAMES, STATUS_LABELS } from '../utils/constants.js'
+import type { Session, ExerciseGroup, StravaActivity } from '../types/common.js'
+import { StravaActivityChip } from '../components/StravaActivityChip.js'
 
-interface Feedback { status: FeedbackStatus; rpe: number; comment: string | null }
-interface Session { id: string; exerciseGroupId: string | null; feedback: Feedback | null }
-interface ExerciseGroup { id: string; name: string; parsedData?: unknown }
 interface GroupPlan {
   id: string
   date: string
@@ -30,21 +28,14 @@ interface IndPlan {
   days: IndPlanDay[]
 }
 
-function StatusBadge({ status }: { status: FeedbackStatus }) {
-  const cfg = {
-    COMPLETED: { label: 'Виконано', color: '#16a34a', bg: '#dcfce7' },
-    PARTIAL:   { label: 'Частково', color: '#ca8a04', bg: '#fef9c3' },
-    SKIPPED:   { label: 'Пропущено', color: '#dc2626', bg: '#fee2e2' },
-  }[status]
-  return (
-    <span style={{ fontSize: '0.6875rem', fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: 9999, background: cfg.bg, color: cfg.color }}>
-      {cfg.label}
-    </span>
-  )
-}
-
 function SessionStatus({ session, startColor }: { session: Session | undefined; startColor: string }) {
-  if (session?.feedback) return <StatusBadge status={session.feedback.status} />
+  if (session?.feedback) {
+    return (
+      <span className={`badge badge-${session.feedback.status.toLowerCase()}`}>
+        {STATUS_LABELS[session.feedback.status]}
+      </span>
+    )
+  }
   if (session) return <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>Без відгуку →</span>
   return <span style={{ fontSize: '0.6875rem', color: startColor }}>Розпочати →</span>
 }
@@ -86,9 +77,29 @@ export function WeeklyCalendarPage() {
     setSearchParams({ week: next }, { replace: true })
   }
 
+  const qc = useQueryClient()
+  const syncStrava = useMutation({
+    mutationFn: () => api.post('/strava/sync'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['week'] }),
+  })
+
+  const { data: stravaStatus } = useQuery({
+    queryKey: ['strava-status'],
+    queryFn: () => api.get('/strava/status').then((r) => r.data),
+  })
+
   const weekDates = data ? getWeekDates(data.weekStart) : []
   const groupPlans: GroupPlan[] = data?.groupPlans ?? []
   const indPlans: IndPlan[] = data?.individualPlans ?? []
+
+  // Strava activities indexed by date
+  const stravaActivities: StravaActivity[] = data?.stravaActivities ?? []
+  const stravaByDate: Record<string, StravaActivity[]> = {}
+  for (const act of stravaActivities) {
+    const d = act.startDateLocal.split('T')[0]
+    if (!stravaByDate[d]) stravaByDate[d] = []
+    stravaByDate[d].push(act)
+  }
 
   // Group plans indexed by date
   const plansByDate: Record<string, GroupPlan[]> = {}
@@ -166,6 +177,17 @@ export function WeeklyCalendarPage() {
         <h2 style={{ fontWeight: 700, fontSize: '1rem', flex: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
           {data?.weekStart && formatWeekRange(data.weekStart)}
         </h2>
+        {stravaStatus?.connected && (
+          <button
+            className="btn-secondary"
+            onClick={() => syncStrava.mutate()}
+            disabled={syncStrava.isPending}
+            title="Синхронізувати Strava"
+            style={{ padding: '0.5rem 0.625rem', flexShrink: 0, color: '#FC4C02', borderColor: '#FC4C02', fontSize: '1rem' }}
+          >
+            {syncStrava.isPending ? '…' : '🔄'}
+          </button>
+        )}
         <button className="btn-secondary" onClick={() => changeWeek(7)} style={{ padding: '0.5rem 0.625rem', flexShrink: 0 }}>→</button>
       </div>
 
@@ -194,10 +216,13 @@ export function WeeklyCalendarPage() {
             const isEmpty = dayGroupPlans.length === 0 && dayIndDays.length === 0
             const isToday = date === today
 
+            const dayStravaActs = stravaByDate[date] ?? []
+            const hasAnyContent = !isEmpty || dayStravaActs.length > 0
+
             return (
               <div key={date} className="card" style={{
                 display: 'flex', gap: '1rem',
-                opacity: isEmpty ? 0.45 : 1,
+                opacity: hasAnyContent ? 1 : 0.45,
                 background: isToday ? '#eff6ff' : undefined,
                 border: isToday ? '1px solid #bfdbfe' : undefined,
               }}>
@@ -211,7 +236,7 @@ export function WeeklyCalendarPage() {
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {isEmpty && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>День відпочинку</span>}
+                  {isEmpty && dayStravaActs.length === 0 && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>День відпочинку</span>}
 
                   {dayGroupPlans.map((plan) => (
                     <Link key={plan.id} to={`/plan/${plan.id}`} style={{ display: 'block', textDecoration: 'none', marginBottom: '0.5rem' }}>
@@ -267,6 +292,15 @@ export function WeeklyCalendarPage() {
                       </div>
                     </Link>
                   ))}
+
+                  {/* Strava activities for this day */}
+                  {dayStravaActs.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginTop: isEmpty ? 0 : '0.375rem' }}>
+                      {dayStravaActs.map((act) => (
+                        <StravaActivityChip key={act.id} activity={act} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )

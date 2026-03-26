@@ -9,6 +9,7 @@ import {
   IconCalendar, IconUsers, IconChartBar,
   IconShield, IconLogout, IconLock, IconChevronsLeft, IconChevronsRight, IconDownload, IconUser,
 } from '@tabler/icons-react'
+import { IconStrava } from './IconStrava.js'
 import { useAuthStore } from '../store/auth.js'
 import logoSvg from '../assets/logo.svg'
 import { api } from '../api/client.js'
@@ -221,6 +222,21 @@ export function Layout() {
                   </Box>
                 )}
 
+                <Link to="/strava/connect" style={{ textDecoration: 'none' }}>
+                  <Box
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.375rem 0.75rem', borderRadius: 8, cursor: 'pointer',
+                      fontSize: '0.8125rem', color: 'var(--color-strava)',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff4ef' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                  >
+                    <IconStrava size={14} color="var(--color-strava)" />
+                    Strava
+                  </Box>
+                </Link>
+
                 <Popover opened={pwPopover} onChange={setPwPopover} width={280} position="top-start">
                   <Popover.Target>
                     <Box
@@ -277,6 +293,9 @@ export function Layout() {
               </>
             )}
           </Box>
+          <Text size="xs" c="dimmed" style={{ padding: '0.5rem 0.75rem', marginTop: 'auto' }}>
+            v{__APP_VERSION__}
+          </Text>
         </AppShell.Navbar>
 
         <AppShell.Main style={{ background: 'var(--color-bg)' }}>
@@ -355,6 +374,12 @@ export function Layout() {
               <Text size="sm">Встановити додаток</Text>
             </Box>
           )}
+          <Link to="/strava/connect" style={{ textDecoration: 'none', color: 'var(--color-strava)' }} onClick={closeProfile}>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', cursor: 'pointer' }}>
+              <IconStrava size={18} color="var(--color-strava)" />
+              <Text size="sm" style={{ color: 'var(--color-strava)' }}>Strava</Text>
+            </Box>
+          </Link>
           <Popover opened={pwPopover} onChange={setPwPopover} width="100%" position="top">
             <Popover.Target>
               <Box onClick={() => { setPwPopover((v) => !v); setPwError('') }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', cursor: 'pointer' }}>
@@ -379,6 +404,7 @@ export function Layout() {
             <IconLogout size={18} />
             <Text size="sm">Вийти</Text>
           </Box>
+          <Text size="xs" c="dimmed" style={{ paddingTop: '0.75rem' }}>v{__APP_VERSION__}</Text>
         </Stack>
       </Drawer>
     </>

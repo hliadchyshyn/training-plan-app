@@ -8,6 +8,8 @@
   --color-primary: #1a56db;
   --color-primary-dark: #1341ab;
   --color-success: #16a34a;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
   --color-warning: #ca8a04;
   --color-danger: #dc2626;
   --color-bg: #f9fafb;
@@ -15,6 +17,9 @@
   --color-border: #e5e7eb;
   --color-text: #111827;
   --color-text-muted: #6b7280;
+  --color-today-bg: #eff6ff;
+  --color-today-bg-hover: #dbeafe;
+  --color-strava: #FC4C02;
   --radius: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
@@ -55,6 +60,26 @@ button {
 .btn-danger {
   background: var(--color-danger);
   color: #fff;
+}
+
+.btn-back {
+  background: var(--color-border);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.btn-back:hover { background: #d1d5db; }
+
+.page-loading, .page-empty {
+  color: var(--color-text-muted);
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.card-success {
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
 }
 
 input, textarea, select {
@@ -117,6 +142,24 @@ label {
 .badge-completed { background: #dcfce7; color: #15803d; }
 .badge-partial { background: #fef9c3; color: #a16207; }
 .badge-skipped { background: #fee2e2; color: #b91c1c; }
+
+/* ── FAB (floating action button) ── */
+.fab {
+  display: none;
+}
+
+@media (max-width: 48em) {
+  .fab {
+    display: flex !important;
+    position: fixed !important;
+    bottom: calc(56px + env(safe-area-inset-bottom) + 1rem) !important;
+    right: 1.25rem !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+    z-index: 100 !important;
+  }
+
+  .hide-mobile { display: none !important; }
+}
 
 /* ── Mobile-first responsive ── */
 @media (max-width: 48em) {

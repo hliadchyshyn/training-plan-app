@@ -1,6 +1,9 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
+import { StravaActivityChip } from '../../components/StravaActivityChip.js'
+import { STATUS_LABELS, STATUS_DOT_COLORS } from '../../utils/constants.js'
+import type { StravaActivity } from '../../types/common.js'
 
 interface FeedbackItem {
   id: string
@@ -9,6 +12,7 @@ interface FeedbackItem {
   date: string | null
   feedback: { status: string; rpe: number; comment: string | null } | null
   hasSession?: boolean
+  stravaActivity?: StravaActivity | null
 }
 
 function TrafficDot({ status, rpe, hasSession }: { status?: string; rpe?: number; hasSession?: boolean }) {
@@ -26,11 +30,10 @@ function TrafficDot({ status, rpe, hasSession }: { status?: string; rpe?: number
   )
 }
 
-const DOT_COLORS: Record<string, string> = { COMPLETED: '#22c55e', PARTIAL: '#f59e0b', SKIPPED: '#ef4444' }
-const STATUS_UA: Record<string, string> = { COMPLETED: 'Виконано', PARTIAL: 'Частково', SKIPPED: 'Пропущено' }
 
 export function FeedbackSummaryPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
 
   const { data: sessions = [], isLoading } = useQuery<FeedbackItem[]>({
     queryKey: ['feedback', id],
@@ -51,11 +54,7 @@ export function FeedbackSummaryPage() {
 
   return (
     <div className="page">
-      <div style={{ marginBottom: '1rem' }}>
-        <Link to="/trainer" style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-          ← Назад до панелі
-        </Link>
-      </div>
+      <button className="btn-back" onClick={() => navigate('/trainer')}>← Назад</button>
       <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '1.5rem' }}>
         Відгуки спортсменів
       </h2>
@@ -79,7 +78,7 @@ export function FeedbackSummaryPage() {
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
               {['COMPLETED', 'PARTIAL', 'SKIPPED'].map((s) => stats[s] > 0 && (
                 <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: DOT_COLORS[s], display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATUS_DOT_COLORS[s as keyof typeof STATUS_DOT_COLORS] ?? '#e5e7eb', display: 'inline-block', flexShrink: 0 }} />
                   {stats[s]}
                 </span>
               ))}
@@ -106,7 +105,7 @@ export function FeedbackSummaryPage() {
                   {session.feedback && (
                     <>
                       <span className={`badge badge-${session.feedback.status.toLowerCase()}`}>
-                        {STATUS_UA[session.feedback.status] ?? session.feedback.status}
+                        {STATUS_LABELS[session.feedback.status as keyof typeof STATUS_LABELS] ?? session.feedback.status}
                       </span>
                       <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>RPE {session.feedback.rpe}</span>
                     </>
@@ -119,6 +118,11 @@ export function FeedbackSummaryPage() {
                 <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
                   {session.feedback.comment}
                 </p>
+              )}
+              {session.stravaActivity && (
+                <div style={{ marginTop: '0.375rem' }}>
+                  <StravaActivityChip activity={session.stravaActivity} />
+                </div>
               )}
             </div>
           </div>

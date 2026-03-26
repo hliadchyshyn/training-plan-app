@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { parseWorkout } from '../parsers/workout.js'
-import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, DAYS_INCLUDE } from '../utils/db.js'
+import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, DAYS_INCLUDE, IND_PLAN_DAYS_INCLUDE } from '../utils/db.js'
 
 const exerciseGroupSchema = z.object({
   name: z.string().min(1),
@@ -164,7 +164,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
           }),
           fastify.prisma.individualPlan.findMany({
             where: { trainerId },
-            include: { days: DAYS_INCLUDE, athlete: { select: ATHLETE_SELECT } },
+            include: { days: IND_PLAN_DAYS_INCLUDE, athlete: { select: ATHLETE_SELECT } },
             orderBy: { weekStart: 'desc' },
           }),
         ])
@@ -184,7 +184,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.prisma.trainingPlan.count({ where: groupWhere }),
         fastify.prisma.individualPlan.findMany({
           where: indWhere,
-          include: { days: DAYS_INCLUDE, athlete: { select: ATHLETE_SELECT } },
+          include: { days: IND_PLAN_DAYS_INCLUDE, athlete: { select: ATHLETE_SELECT } },
           orderBy: { weekStart: orderDir },
           skip: (indPage - 1) * limit,
           take: limit,
@@ -220,6 +220,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
             athlete: { select: ATHLETE_SELECT },
             exerciseGroup: { select: { id: true, name: true } },
             feedback: true,
+            stravaActivity: { select: { id: true, stravaId: true, name: true, type: true, distance: true, movingTime: true, averageHeartrate: true, startDateLocal: true } },
           },
           orderBy: { createdAt: 'desc' },
         }),
@@ -234,6 +235,9 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
 
         const result = teamMembers.map((member: MemberRow) => {
           const session = sessionMap.get(member.athleteId)
+          const stravaActivity = session?.stravaActivity
+            ? { ...session.stravaActivity, stravaId: session.stravaActivity.stravaId.toString() }
+            : null
           return {
             id: session?.id ?? `pending-${member.athleteId}`,
             athlete: member.athlete,
@@ -241,11 +245,15 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
             date: session?.date ?? null,
             feedback: session?.feedback ?? null,
             hasSession: !!session,
+            stravaActivity,
           }
         })
 
         for (const session of sessions) {
           if (!teamMembers.find((m: MemberRow) => m.athleteId === session.athleteId)) {
+            const stravaActivity = session.stravaActivity
+              ? { ...session.stravaActivity, stravaId: session.stravaActivity.stravaId.toString() }
+              : null
             result.push({
               id: session.id,
               athlete: session.athlete,
@@ -253,6 +261,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
               date: session.date,
               feedback: session.feedback,
               hasSession: true,
+              stravaActivity,
             })
           }
         }
@@ -283,10 +292,32 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const trainerId = request.user.sub
       const plan = await fastify.prisma.individualPlan.findUnique({
         where: { id },
-        include: { athlete: { select: ATHLETE_SELECT }, days: { orderBy: { dayOfWeek: 'asc' } } },
+        include: {
+          athlete: { select: ATHLETE_SELECT },
+          days: {
+            orderBy: { dayOfWeek: 'asc' },
+            include: {
+              sessions: {
+                include: {
+                  feedback: true,
+                  stravaActivity: { select: { id: true, stravaId: true, name: true, type: true, distance: true, movingTime: true, averageHeartrate: true, startDateLocal: true } },
+                },
+              },
+            },
+          },
+        },
       })
       if (!plan || plan.trainerId !== trainerId) return reply.status(404).send({ error: 'Plan not found' })
-      return plan
+      return {
+        ...plan,
+        days: plan.days.map((d) => ({
+          ...d,
+          sessions: d.sessions.map((s) => ({
+            ...s,
+            stravaActivity: s.stravaActivity ? { ...s.stravaActivity, stravaId: s.stravaActivity.stravaId.toString() } : null,
+          })),
+        })),
+      }
     },
   )
 

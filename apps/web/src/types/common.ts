@@ -20,3 +20,18 @@ export interface ExerciseGroup {
   rawText: string
   parsedData: unknown
 }
+
+export interface StravaActivity {
+  id: string
+  stravaId: string
+  name: string
+  type: string
+  startDateLocal: string
+  distance: number
+  movingTime: number
+  averageHeartrate?: number | null
+  maxHeartrate?: number | null
+  totalElevationGain?: number | null
+  sessionId?: string | null
+  matchConfidence?: string | null
+}

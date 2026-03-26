@@ -1,3 +1,8 @@
+/** Strip time portion from ISO string — "2026-03-25T10:00:00" → "2026-03-25" */
+export function dateOnly(dateStr: string): string {
+  return dateStr.split('T')[0]
+}
+
 /** Format a Date as "YYYY-MM-DD" using local time (avoids UTC offset shift) */
 export function toLocalDateStr(d: Date): string {
   const y = d.getFullYear()

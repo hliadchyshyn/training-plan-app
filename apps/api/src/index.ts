@@ -8,6 +8,7 @@ import { adminRoutes } from './routes/admin.js'
 import { teamRoutes } from './routes/teams.js'
 import { planRoutes } from './routes/plans.js'
 import { athleteRoutes } from './routes/athlete.js'
+import { stravaRoutes } from './routes/strava.js'
 
 const server = Fastify({ logger: true })
 
@@ -24,6 +25,7 @@ await server.register(adminRoutes, { prefix: '/api/admin' })
 await server.register(teamRoutes, { prefix: '/api/teams' })
 await server.register(planRoutes, { prefix: '/api/plans' })
 await server.register(athleteRoutes, { prefix: '/api/my' })
+await server.register(stravaRoutes, { prefix: '/api/strava' })
 
 server.setErrorHandler((error, _request, reply) => {
   // Zod validation errors come through as plain Errors with JSON message

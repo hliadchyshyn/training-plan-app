@@ -7,3 +7,10 @@ export const STATUS_LABELS: Record<FeedbackStatus, string> = {
   PARTIAL:   'Частково',
   SKIPPED:   'Пропущено',
 }
+
+/** Vivid colors for small dot indicators (traffic light style) */
+export const STATUS_DOT_COLORS: Record<FeedbackStatus, string> = {
+  COMPLETED: '#22c55e',
+  PARTIAL:   '#f59e0b',
+  SKIPPED:   '#ef4444',
+}

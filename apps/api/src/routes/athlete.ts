@@ -73,11 +73,22 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       }),
     ])
 
+    const stravaActivities = await fastify.prisma.stravaActivity.findMany({
+      where: { athleteId, startDate: { gte: monday, lte: sunday } },
+      select: {
+        id: true, stravaId: true, name: true, type: true,
+        startDateLocal: true, distance: true, movingTime: true,
+        averageHeartrate: true, maxHeartrate: true, totalElevationGain: true,
+        sessionId: true, matchConfidence: true,
+      },
+    })
+
     return {
       weekStart: monday.toISOString().split('T')[0],
       weekEnd: sunday.toISOString().split('T')[0],
       groupPlans,
       individualPlans,
+      stravaActivities: stravaActivities.map((a) => ({ ...a, stravaId: a.stravaId.toString() })),
     }
   })
 
@@ -89,7 +100,13 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
         days: {
           ...IND_PLAN_DAYS_INCLUDE,
           include: {
-            sessions: { where: { athleteId }, include: { feedback: true } },
+            sessions: {
+              where: { athleteId },
+              include: {
+                feedback: true,
+                stravaActivity: { select: { id: true, stravaId: true, name: true, type: true, startDateLocal: true, distance: true, movingTime: true, averageHeartrate: true, maxHeartrate: true, totalElevationGain: true, sessionId: true } },
+              },
+            },
           },
         },
       },
@@ -106,7 +123,7 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
       include: {
         exerciseGroups: EXERCISE_GROUPS_INCLUDE,
         team: { select: { id: true, name: true } },
-        sessions: { where: { athleteId }, include: { feedback: true } },
+        sessions: { where: { athleteId }, include: { feedback: true, stravaActivity: { select: { id: true, stravaId: true, name: true, type: true, startDateLocal: true, distance: true, movingTime: true, averageHeartrate: true, maxHeartrate: true, totalElevationGain: true, sessionId: true } } } },
       },
     })
 

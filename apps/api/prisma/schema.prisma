@@ -37,6 +37,7 @@ model User {
   teamMemberships TeamMember[]
   athleteSessions AthleteSession[]
   individualPlans IndividualPlan[]
+  stravaAccount   StravaAccount?
 }
 
 model TrainerTeam {
@@ -120,9 +121,53 @@ model AthleteSession {
   date                DateTime           @db.Date
   createdAt           DateTime           @default(now())
   feedback            SessionFeedback?
+  stravaActivity      StravaActivity?
 
   @@unique([athleteId, planId, date])
   @@unique([athleteId, individualPlanDayId])
+}
+
+model StravaAccount {
+  id                    String           @id @default(uuid())
+  userId                String           @unique
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stravaAthleteId       BigInt           @unique
+  accessToken           String
+  refreshToken          String
+  tokenExpiresAt        DateTime
+  scope                 String           @default("activity:read_all")
+  webhookSubscriptionId Int?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  activities            StravaActivity[]
+}
+
+model StravaActivity {
+  id                 String          @id @default(uuid())
+  stravaAccountId    String
+  stravaAccount      StravaAccount   @relation(fields: [stravaAccountId], references: [id], onDelete: Cascade)
+  athleteId          String
+  stravaId           BigInt          @unique
+  name               String
+  type               String
+  startDate          DateTime
+  startDateLocal     DateTime
+  distance           Float
+  movingTime         Int
+  averageHeartrate   Float?
+  maxHeartrate       Float?
+  averageSpeed       Float?
+  averageCadence     Float?
+  totalElevationGain Float?
+  splitsMetric       Json?
+  sessionId          String?         @unique
+  session            AthleteSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  matchedAt          DateTime?
+  matchConfidence    String?
+  syncedAt           DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([athleteId, startDate])
 }
 
 model SessionFeedback {

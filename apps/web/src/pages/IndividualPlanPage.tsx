@@ -3,9 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.js'
 import { FeedbackForm } from '../components/FeedbackForm.js'
+import { StravaActivityChip } from '../components/StravaActivityChip.js'
 import { formatWeekRange } from '../utils/date.js'
 import { DAY_NAMES, STATUS_LABELS } from '../utils/constants.js'
-import type { FeedbackStatus } from '../types/common.js'
+import type { FeedbackStatus, StravaActivity } from '../types/common.js'
 
 interface IndPlanDay {
   id: string
@@ -14,6 +15,7 @@ interface IndPlanDay {
   sessions: Array<{
     id: string
     feedback: { status: FeedbackStatus; rpe: number; comment: string | null } | null
+    stravaActivity?: StravaActivity | null
   }>
 }
 
@@ -52,8 +54,8 @@ export function IndividualPlanPage() {
     },
   })
 
-  if (isLoading) return <div className="page">Завантаження...</div>
-  if (!plan) return <div className="page">План не знайдено</div>
+  if (isLoading) return <div className="page"><p className="page-loading">Завантаження...</p></div>
+  if (!plan) return <div className="page"><p className="page-empty">План не знайдено</p></div>
 
   const weekStart = new Date(plan.weekStart)
   const dateForDay = (dow: number) => {
@@ -71,13 +73,7 @@ export function IndividualPlanPage() {
 
   return (
     <div className="page">
-      <button
-        className="btn-secondary"
-        style={{ fontSize: '0.875rem', marginBottom: '1rem', padding: '0.25rem 0.75rem' }}
-        onClick={handleCancel}
-      >
-        ← Назад
-      </button>
+      <button className="btn-back" onClick={handleCancel}>← Назад</button>
 
       <h2 style={{ fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.25rem' }}>
         Індивідуальний план
@@ -138,6 +134,11 @@ export function IndividualPlanPage() {
               {session?.feedback && (
                 <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', paddingLeft: 46 }}>
                   RPE: {session.feedback.rpe}{session.feedback.comment && ` · ${session.feedback.comment}`}
+                  {session.stravaActivity && (
+                    <div style={{ marginTop: '0.375rem' }}>
+                      <StravaActivityChip activity={{ ...session.stravaActivity, stravaId: session.stravaActivity.stravaId.toString() }} />
+                    </div>
+                  )}
                 </div>
               )}
 
