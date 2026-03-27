@@ -148,9 +148,9 @@ export default function WatchWorkoutDetailPage() {
     <div className="page">
       <button className="btn-back" onClick={() => navigate('/watch-workouts')}>← Назад</button>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <h2 style={{ margin: 0 }}>{workout.name}</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ marginBottom: 8 }}>
+        <h2 style={{ margin: '0 0 8px' }}>{workout.name}</h2>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             className="btn-secondary"
             onClick={() => copyMutation.mutate()}
