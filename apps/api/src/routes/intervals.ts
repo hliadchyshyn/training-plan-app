@@ -85,7 +85,7 @@ export const intervalsRoutes: FastifyPluginAsync = async (fastify) => {
       if (!workout) return reply.status(404).send({ error: 'Тренування не знайдено' })
       if (workout.creatorId !== userId) return reply.status(403).send({ error: 'Немає доступу' })
 
-      const steps = workout.steps as WatchWorkoutStep[]
+      const steps = workout.steps as unknown as WatchWorkoutStep[]
       const fitBuffer = stepsToFit(workout.name, workout.sport as WatchSport, steps)
 
       try {
