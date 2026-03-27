@@ -24,6 +24,12 @@ enum FeedbackStatus {
   SKIPPED
 }
 
+enum WatchSport {
+  RUNNING
+  CYCLING
+  SWIMMING
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -38,6 +44,8 @@ model User {
   athleteSessions AthleteSession[]
   individualPlans IndividualPlan[]
   stravaAccount   StravaAccount?
+  watchWorkouts        WatchWorkout[]       @relation("WatchWorkouts")
+  intervalsConnection  IntervalsConnection?
 }
 
 model TrainerTeam {
@@ -168,6 +176,31 @@ model StravaActivity {
   updatedAt          DateTime        @updatedAt
 
   @@index([athleteId, startDate])
+}
+
+model WatchWorkout {
+  id         String     @id @default(uuid())
+  creatorId  String
+  creator    User       @relation("WatchWorkouts", fields: [creatorId], references: [id])
+  name       String
+  sport      WatchSport @default(RUNNING)
+  steps      Json       // WatchWorkoutStep[]
+  notes      String?
+  sourceType  String?    // "GROUP_PLAN" | "INDIVIDUAL_DAY" | "MANUAL"
+  sourceId    String?
+  icuEventId  String?    // last Intervals.icu event id pushed
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model IntervalsConnection {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey      String
+  athleteId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model SessionFeedback {

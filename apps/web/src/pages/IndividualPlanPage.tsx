@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { IconDeviceWatch } from '@tabler/icons-react'
 import { api } from '../api/client.js'
 import { FeedbackForm } from '../components/FeedbackForm.js'
 import { StravaActivityChip } from '../components/StravaActivityChip.js'
@@ -39,6 +40,12 @@ export function IndividualPlanPage() {
   })
 
   const plan = plans?.find((p) => p.id === id)
+
+  const convertToWatch = useMutation({
+    mutationFn: (dayId: string) =>
+      api.post('/watch-workouts/from-plan', { sourceType: 'INDIVIDUAL_DAY', sourceId: dayId }).then((r) => r.data),
+    onSuccess: (data) => navigate(`/watch-workouts/${data.id}`),
+  })
 
   const submitFeedback = useMutation({
     mutationFn: ({ dayId, date }: { dayId: string; date: string }) =>
@@ -129,6 +136,16 @@ export function IndividualPlanPage() {
                 {!session?.feedback && !isActive && (
                   <span style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', flexShrink: 0 }}>Залишити відгук →</span>
                 )}
+              </div>
+              <div style={{ paddingLeft: 46 }} onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="btn-secondary"
+                  style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px' }}
+                  disabled={convertToWatch.isPending}
+                  onClick={() => convertToWatch.mutate(day.id)}
+                >
+                  <IconDeviceWatch size={13} /> На годинник
+                </button>
               </div>
 
               {session?.feedback && (

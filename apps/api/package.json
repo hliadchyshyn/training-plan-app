@@ -16,6 +16,7 @@
     "@fastify/cookie": "^9.3.1",
     "@fastify/cors": "^9.0.1",
     "@fastify/jwt": "^8.0.1",
+    "@garmin/fitsdk": "^21.195.0",
     "@prisma/client": "^5.14.0",
     "@training-plan/shared": "*",
     "@types/bcrypt": "^5.0.2",

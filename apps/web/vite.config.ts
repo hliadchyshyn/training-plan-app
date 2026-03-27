@@ -14,8 +14,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Training Plan',
-        short_name: 'TrainPlan',
+        name: 'Splitly',
+        short_name: 'Splitly',
         description: 'Athletics training plan manager',
         theme_color: '#1a56db',
         background_color: '#ffffff',

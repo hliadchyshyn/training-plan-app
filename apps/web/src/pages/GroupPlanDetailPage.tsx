@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { IconDeviceWatch } from '@tabler/icons-react'
 import { api } from '../api/client.js'
 import { WorkoutCard } from '../components/WorkoutCard.js'
 import { FeedbackForm } from '../components/FeedbackForm.js'
@@ -27,6 +28,12 @@ export function GroupPlanDetailPage() {
   const { data: plan, isLoading } = useQuery<Plan>({
     queryKey: ['plan', id],
     queryFn: () => api.get(`/my/plans/group/${id}`).then((r) => r.data),
+  })
+
+  const convertToWatch = useMutation({
+    mutationFn: (body: { sourceId: string; name: string }) =>
+      api.post('/watch-workouts/from-plan', { sourceType: 'GROUP_PLAN', ...body }).then((r) => r.data),
+    onSuccess: (data) => navigate(`/watch-workouts/${data.id}`),
   })
 
   const submitFeedback = useMutation({
@@ -116,6 +123,17 @@ export function GroupPlanDetailPage() {
                     {group.name}
                   </div>
                   <WorkoutCard rawText={group.rawText} parsedData={group.parsedData} />
+
+                  <div style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="btn-secondary"
+                      style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      disabled={convertToWatch.isPending}
+                      onClick={() => convertToWatch.mutate({ sourceId: group.id, name: group.name })}
+                    >
+                      <IconDeviceWatch size={14} /> На годинник
+                    </button>
+                  </div>
 
                   {isSelected && (
                     <div

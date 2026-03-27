@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "WebSearch",
+      "Bash(docker exec:*)",
+      "WebFetch(domain:forum.intervals.icu)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

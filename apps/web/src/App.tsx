@@ -14,6 +14,11 @@ import { EditIndividualPlanPage } from './pages/trainer/EditIndividualPlanPage.j
 import { AdminPage } from './pages/admin/AdminPage.js'
 import { StravaConnectPage } from './pages/StravaConnectPage.js'
 import { StravaCallbackPage } from './pages/StravaCallbackPage.js'
+import IntervalsConnectPage from './pages/IntervalsConnectPage.js'
+import WatchWorkoutsPage from './pages/WatchWorkoutsPage.js'
+import WatchWorkoutDetailPage from './pages/WatchWorkoutDetailPage.js'
+import CreateWatchWorkoutPage from './pages/CreateWatchWorkoutPage.js'
+import EditWatchWorkoutPage from './pages/EditWatchWorkoutPage.js'
 import { Layout } from './components/Layout.js'
 
 function NotFoundPage() {
@@ -109,6 +114,12 @@ export default function App() {
 
           <Route path="/strava/connect" element={<StravaConnectPage />} />
           <Route path="/strava/connected" element={<StravaCallbackPage />} />
+          <Route path="/intervals" element={<IntervalsConnectPage />} />
+
+          <Route path="/watch-workouts" element={<WatchWorkoutsPage />} />
+          <Route path="/watch-workouts/new" element={<CreateWatchWorkoutPage />} />
+          <Route path="/watch-workouts/:id" element={<WatchWorkoutDetailPage />} />
+          <Route path="/watch-workouts/:id/edit" element={<EditWatchWorkoutPage />} />
 
           <Route
             path="/admin"

@@ -6,7 +6,7 @@ import {
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
-  IconCalendar, IconUsers, IconChartBar,
+  IconCalendar, IconUsers, IconChartBar, IconDeviceWatch,
   IconShield, IconLogout, IconLock, IconChevronsLeft, IconChevronsRight, IconDownload, IconUser,
 } from '@tabler/icons-react'
 import { IconStrava } from './IconStrava.js'
@@ -56,6 +56,7 @@ export function Layout() {
 
   const navItems = [
     { to: '/', label: 'Мій план', icon: <IconCalendar size={20} />, active: pathname === '/', show: true },
+    { to: '/watch-workouts', label: 'Годинник', icon: <IconDeviceWatch size={20} />, active: pathname.startsWith('/watch-workouts'), show: true },
     { to: '/trainer', label: 'Тренер', icon: <IconChartBar size={20} />, active: pathname === '/trainer', show: isTrainer },
     { to: '/trainer/athletes', label: 'Команди', icon: <IconUsers size={20} />, active: pathname.startsWith('/trainer/athletes'), show: isTrainer },
     { to: '/admin', label: 'Адмін', icon: <IconShield size={20} />, active: pathname.startsWith('/admin'), show: isAdmin },
@@ -112,7 +113,7 @@ export function Layout() {
           <Box mb="md" style={{ padding: collapsed ? '0.75rem 0' : '0.75rem 0.5rem 0.75rem 0.75rem' }}>
             {collapsed ? (
               <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                <img src={logoSvg} alt="Training Plan" style={{ height: 32 }} />
+                <img src={logoSvg} alt="Splitly" style={{ height: 32 }} />
                 <Tooltip label="Розгорнути" position="right" withArrow>
                   <Box
                     onClick={() => setCollapsed(false)}
@@ -127,9 +128,9 @@ export function Layout() {
             ) : (
               <Group style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
                 <Group gap="xs" style={{ flexWrap: 'nowrap', overflow: 'hidden' }}>
-                  <img src={logoSvg} alt="Training Plan" style={{ height: 32, flexShrink: 0 }} />
+                  <img src={logoSvg} alt="Splitly" style={{ height: 32, flexShrink: 0 }} />
                   <Text fw={600} size="sm" c="dark" style={{ letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
-                    Training Plan
+                    Splitly
                   </Text>
                 </Group>
                 <Tooltip label="Згорнути" position="right" withArrow>
@@ -234,6 +235,21 @@ export function Layout() {
                   >
                     <IconStrava size={14} color="var(--color-strava)" />
                     Strava
+                  </Box>
+                </Link>
+
+                <Link to="/intervals" style={{ textDecoration: 'none' }}>
+                  <Box
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.375rem 0.75rem', borderRadius: 8, cursor: 'pointer',
+                      fontSize: '0.8125rem', color: '#e8420a',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff4ef' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                  >
+                    <IconDeviceWatch size={14} style={{ color: '#e8420a' }} />
+                    Intervals.icu
                   </Box>
                 </Link>
 
@@ -378,6 +394,12 @@ export function Layout() {
             <Box style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', cursor: 'pointer' }}>
               <IconStrava size={18} color="var(--color-strava)" />
               <Text size="sm" style={{ color: 'var(--color-strava)' }}>Strava</Text>
+            </Box>
+          </Link>
+          <Link to="/intervals" style={{ textDecoration: 'none', color: '#e8420a' }} onClick={closeProfile}>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', cursor: 'pointer' }}>
+              <IconDeviceWatch size={18} style={{ color: '#e8420a' }} />
+              <Text size="sm" style={{ color: '#e8420a' }}>Intervals.icu</Text>
             </Box>
           </Link>
           <Popover opened={pwPopover} onChange={setPwPopover} width="100%" position="top">

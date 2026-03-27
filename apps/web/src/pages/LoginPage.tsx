@@ -30,7 +30,7 @@ export function LoginPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
       <div className="card" style={{ width: '100%', maxWidth: 400 }}>
-        <h1 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700 }}>Training Plan</h1>
+        <h1 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700 }}>Splitly</h1>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
