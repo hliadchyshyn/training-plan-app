@@ -164,7 +164,6 @@ function GroupPlansPanel() {
   const [searchParams, setSearchParams] = useSearchParams()
   const timeTab = (searchParams.get('gtime') as TimeTab) ?? 'upcoming'
   const [month, setMonth] = useState('')
-  const [teamId, setTeamId] = useState('')
   const [page, setPage] = useState(1)
 
   const setTimeReset = (t: TimeTab) => {
@@ -172,19 +171,18 @@ function GroupPlansPanel() {
     setPage(1)
   }
 
-  const { data: teams } = useQuery({ queryKey: ['teams'], queryFn: () => api.get('/teams').then((r) => r.data) })
-
   const { data, isLoading } = useQuery({
-    queryKey: ['trainer-group-plans', timeTab, month, teamId, page],
-    queryFn: () => api.get('/plans', { params: { tab: timeTab, ...(month && { month }), ...(teamId && { teamId }), groupPage: page, limit: LIMIT } }).then((r) => r.data),
+    queryKey: ['trainer-group-plans', timeTab, month, page],
+    queryFn: () => api.get('/plans', { params: { tab: timeTab, ...(month && { month }), groupPage: page, limit: LIMIT } }).then((r) => r.data),
   })
 
-  type GroupPlan = { id: string; date: string; title: string | null; team: { name: string } | null; exerciseGroups: Array<{ id: string }> }
+  type GroupPlan = { id: string; date: string; title: string | null; exerciseGroups: Array<{ id: string }> }
   const plans: GroupPlan[] = data?.groupPlans?.data ?? []
   const totalPages: number = data?.groupPlans?.totalPages ?? 1
 
   const monthOptions = Array.from({ length: 13 }, (_, i) => {
-    const d = new Date(); d.setMonth(d.getMonth() - 6 + i)
+    const now = new Date()
+    const d = new Date(now.getFullYear(), now.getMonth() - 6 + i, 1)
     return {
       val: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
       label: d.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }),
@@ -208,12 +206,8 @@ function GroupPlansPanel() {
           <option value="">Місяць</option>
           {monthOptions.map((o) => <option key={o.val} value={o.val}>{o.label}</option>)}
         </select>
-        <select value={teamId} onChange={(e) => { setTeamId(e.target.value); setPage(1) }} style={selectStyle}>
-          <option value="">Команда</option>
-          {(teams ?? []).map((t: { id: string; name: string }) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        {(month || teamId) && (
-          <button className="btn-secondary" style={{ fontSize: '0.8125rem', padding: '0.25rem 0.5rem' }} onClick={() => { setMonth(''); setTeamId(''); setPage(1) }}>✕</button>
+        {month && (
+          <button className="btn-secondary" style={{ fontSize: '0.8125rem', padding: '0.25rem 0.5rem' }} onClick={() => { setMonth(''); setPage(1) }}>✕</button>
         )}
       </>}
     >

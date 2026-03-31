@@ -14,7 +14,7 @@ export function CreateIndividualPlanPage() {
   const [error, setError] = useState('')
 
   const { data: uniqueAthletes = [] } = useQuery<Array<{ id: string; name: string; email: string }>>({
-    queryKey: ['all-athletes'],
+    queryKey: ['my-athletes'],
     queryFn: () => api.get('/teams/athletes').then((r) => r.data),
   })
 

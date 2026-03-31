@@ -86,7 +86,7 @@ export default function WatchWorkoutsPage() {
   return (
     <div className="page">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Тренування для годинника</h2>
+        <h2 style={{ margin: 0 }}>Тренування</h2>
         <button className="btn-primary hide-mobile" onClick={() => navigate('/watch-workouts/new')}>
           + Створити
         </button>
@@ -95,7 +95,7 @@ export default function WatchWorkoutsPage() {
       {workouts.length === 0 ? (
         <div className="page-empty">
           <IconDeviceWatch size={40} color="var(--color-text-muted)" />
-          <p>Тренувань для годинника ще немає.</p>
+          <p>Тренувань ще немає.</p>
           <button className="btn-primary" onClick={() => navigate('/watch-workouts/new')}>
             Створити перше
           </button>

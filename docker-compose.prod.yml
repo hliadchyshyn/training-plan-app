@@ -1,28 +1,24 @@
 services:
   db:
     image: postgres:16-alpine
-    restart: always
+    restart: unless-stopped
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB:-training_plan}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 256m
 
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    restart: always
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -31,24 +27,30 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       NODE_ENV: production
-    deploy:
-      resources:
-        limits:
-          memory: 256m
+      FRONTEND_URL: ${FRONTEND_URL:-https://plans.tsclub.com.ua}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+      STRAVA_WEBHOOK_VERIFY_TOKEN: ${STRAVA_WEBHOOK_VERIFY_TOKEN:-}
+      STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI}
+      STRAVA_LOGIN_REDIRECT_URI: ${STRAVA_LOGIN_REDIRECT_URI}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+    expose:
+      - "3001"
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    restart: always
+      args:
+        VITE_API_URL: /api
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
     depends_on:
       - api
     ports:
-      - "80:80"
-    deploy:
-      resources:
-        limits:
-          memory: 64m
+      - "127.0.0.1:8080:80"
 
 volumes:
   pgdata:

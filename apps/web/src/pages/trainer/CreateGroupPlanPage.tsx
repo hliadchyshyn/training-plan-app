@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
 import { useAuthStore } from '../../store/auth.js'
 
@@ -14,16 +14,10 @@ export function CreateGroupPlanPage() {
   const navigate = useNavigate()
   const isAdmin = useAuthStore((s) => s.user?.role === 'ADMIN')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [teamId, setTeamId] = useState('')
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [groups, setGroups] = useState<ExerciseGroupDraft[]>([{ name: '', rawText: '', preview: null }])
   const [error, setError] = useState('')
-
-  const { data: teams } = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => api.get('/teams').then((r) => r.data),
-  })
 
   const parsePreview = useMutation({
     mutationFn: (text: string) => api.post('/plans/parse-workout', { text }).then((r) => r.data),
@@ -54,10 +48,8 @@ export function CreateGroupPlanPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!teamId) return setError('Оберіть команду')
     createPlan.mutate({
       date,
-      teamId,
       title: title || undefined,
       notes: notes || undefined,
       groups: groups.map((g, i) => ({ name: g.name, rawText: g.rawText, order: i })),
@@ -70,20 +62,9 @@ export function CreateGroupPlanPage() {
         Новий груповий план
       </h2>
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Дата тренування</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Команда</label>
-            <select value={teamId} onChange={(e) => setTeamId(e.target.value)} required>
-              <option value="">Оберіть команду...</option>
-              {(teams ?? []).map((t: { id: string; name: string }) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="form-group">
+          <label>Дата тренування</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </div>
 
         <div className="form-group">

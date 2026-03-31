@@ -191,7 +191,7 @@ export function WeeklyCalendarPage() {
         <button className="btn-secondary" onClick={() => changeWeek(7)} style={{ padding: '0.5rem 0.625rem', flexShrink: 0 }}>→</button>
       </div>
 
-      {!isLoading && (groupPlans.length > 0 || indPlans.length > 0) && (
+      {!isLoading && (plannedVolumeKm > 0 || stats.COMPLETED > 0 || stats.PARTIAL > 0 || stats.SKIPPED > 0) && (
         <div className="card" style={{ marginBottom: '1.25rem', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
           <p style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem', color: '#0369a1' }}>Підсумок тижня</p>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem' }}>
@@ -301,6 +301,7 @@ export function WeeklyCalendarPage() {
                       ))}
                     </div>
                   )}
+
                 </div>
               </div>
             )

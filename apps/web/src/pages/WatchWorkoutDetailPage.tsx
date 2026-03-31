@@ -68,6 +68,9 @@ export default function WatchWorkoutDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
+  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [scheduleSuccess, setScheduleSuccess] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
   const [pushDate, setPushDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [pushSuccess, setPushSuccess] = useState(false)
   const [pushError, setPushError] = useState('')
@@ -127,6 +130,16 @@ export default function WatchWorkoutDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['watch-workouts'] })
       navigate('/watch-workouts')
     },
+  })
+
+  const scheduleMutation = useMutation({
+    mutationFn: () => api.post(`/watch-workouts/${id}/schedule`, { date: scheduleDate }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['week'] })
+      setScheduleSuccess(true)
+      setScheduleError('')
+    },
+    onError: () => setScheduleError('Помилка планування'),
   })
 
   const handleDownload = async () => {
@@ -245,6 +258,35 @@ export default function WatchWorkoutDetailPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Schedule to calendar */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <strong>Запланувати тренування</strong>
+        <p style={{ margin: '4px 0 12px', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          Тренування з'явиться у вашому календарі на вибрану дату.
+        </p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="date"
+            value={scheduleDate}
+            onChange={(e) => { setScheduleDate(e.target.value); setScheduleSuccess(false) }}
+            style={{ flex: '0 1 160px' }}
+          />
+          <button
+            className="btn-primary"
+            onClick={() => scheduleMutation.mutate()}
+            disabled={scheduleMutation.isPending}
+          >
+            {scheduleMutation.isPending ? 'Збереження...' : 'Запланувати'}
+          </button>
+        </div>
+        {scheduleSuccess && (
+          <p style={{ margin: '8px 0 0', color: 'var(--color-success)', fontSize: '0.875rem' }}>
+            ✓ Додано в календар
+          </p>
+        )}
+        {scheduleError && <p className="error" style={{ margin: '8px 0 0' }}>{scheduleError}</p>}
       </div>
 
       {/* Intervals.icu */}

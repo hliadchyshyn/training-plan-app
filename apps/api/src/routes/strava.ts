@@ -40,7 +40,99 @@ export async function stravaRoutes(fastify: FastifyInstance) {
     return { url: `${STRAVA_AUTH_URL}?${params.toString()}` }
   })
 
-  // GET /api/strava/callback — OAuth callback
+  // GET /api/strava/login-url — Strava OAuth URL for unauthenticated users (login/register)
+  fastify.get('/login-url', async () => {
+    const redirectUri = process.env.STRAVA_LOGIN_REDIRECT_URI
+      ?? `${process.env.API_BASE_URL ?? ''}/api/strava/login-callback`
+
+    const params = new URLSearchParams({
+      client_id: process.env.STRAVA_CLIENT_ID ?? '',
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      approval_prompt: 'auto',
+      scope: 'activity:read_all',
+      state: 'login',
+    })
+
+    return { url: `${STRAVA_AUTH_URL}?${params.toString()}` }
+  })
+
+  // GET /api/strava/login-callback — Strava OAuth callback for login (no auth required)
+  fastify.get('/login-callback', async (request, reply) => {
+    const { code, error } = request.query as Record<string, string>
+    const frontendBase = process.env.FRONTEND_URL ?? 'http://localhost:5173'
+
+    if (error || !code) {
+      return reply.redirect(`${frontendBase}/login?error=strava_denied`)
+    }
+
+    try {
+      const tokenResp = await axios.post(STRAVA_TOKEN_URL, {
+        client_id: process.env.STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+      })
+
+      const { access_token, refresh_token, expires_at, athlete } = tokenResp.data
+
+      // Find user by stravaAthleteId, or create new account
+      let user = await fastify.prisma.user.findFirst({
+        where: { stravaAccount: { stravaAthleteId: BigInt(athlete.id) } },
+      })
+
+      if (!user) {
+        // New user — create account from Strava profile
+        const email = athlete.email ?? `strava_${athlete.id}@strava.local`
+        const existing = await fastify.prisma.user.findFirst({
+          where: { email: { equals: email, mode: 'insensitive' } },
+        })
+        user = existing ?? await fastify.prisma.user.create({
+          data: { email, name: `${athlete.firstname} ${athlete.lastname}`.trim() },
+        })
+      }
+
+      // Upsert Strava tokens
+      await fastify.prisma.stravaAccount.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          stravaAthleteId: BigInt(athlete.id),
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          tokenExpiresAt: new Date(expires_at * 1000),
+          scope: 'activity:read_all',
+        },
+        update: {
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          tokenExpiresAt: new Date(expires_at * 1000),
+        },
+      })
+
+      // Issue JWT and redirect to frontend with token
+      const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret'
+      const payload = { sub: user.id, email: user.email, role: user.role }
+      const accessToken = fastify.jwt.sign(payload, { expiresIn: '15m' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const refreshToken = fastify.jwt.sign(payload, { secret: REFRESH_SECRET, expiresIn: '7d' } as any)
+
+      const IS_PROD = process.env.NODE_ENV === 'production'
+      reply.setCookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        path: '/api/auth/refresh',
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: IS_PROD ? 'none' : 'lax',
+        secure: IS_PROD,
+      })
+
+      return reply.redirect(`${frontendBase}/strava/login-callback?token=${accessToken}`)
+    } catch {
+      return reply.redirect(`${frontendBase}/login?error=strava_failed`)
+    }
+  })
+
+  // GET /api/strava/callback — OAuth callback (for authenticated users connecting Strava)
   fastify.get('/callback', async (request, reply) => {
     const { code, state: userId, error } = request.query as Record<string, string>
     const frontendBase = process.env.FRONTEND_URL ?? 'http://localhost:5173'

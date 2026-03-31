@@ -38,6 +38,9 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/plans/week', async (request) => {
     const athleteId = request.user.sub
     const { date } = request.query as { date?: string }
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return reply.status(400).send({ error: 'Invalid date format' })
+    }
 
     const ref = date ? new Date(date) : new Date()
     const day = ref.getDay() === 0 ? 7 : ref.getDay()
@@ -48,18 +51,27 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     sunday.setDate(monday.getDate() + 6)
     sunday.setHours(23, 59, 59, 999)
 
-    const memberships = await fastify.prisma.teamMember.findMany({
-      where: { athleteId },
-      select: { teamId: true },
+    // Find the athlete's trainer (if any) to load their group plans
+    const athlete = await fastify.prisma.user.findUnique({
+      where: { id: athleteId },
+      select: { trainerId: true, isActive: true },
     })
-    const teamIds = memberships.map((m) => m.teamId)
+
+    const trainerAccessActive = athlete?.trainerId && athlete.isActive
 
     const [groupPlans, individualPlans] = await Promise.all([
       fastify.prisma.trainingPlan.findMany({
-        where: { type: 'GROUP', teamId: { in: teamIds }, date: { gte: monday, lte: sunday } },
+        where: {
+          date: { gte: monday, lte: sunday },
+          OR: [
+            // Trainer's group plans (only if payment is active)
+            ...(trainerAccessActive ? [{ type: 'GROUP' as const, trainerId: athlete!.trainerId! }] : []),
+            // Own personal plans (scheduled from workouts)
+            { trainerId: athleteId },
+          ],
+        },
         include: {
           exerciseGroups: EXERCISE_GROUPS_INCLUDE,
-          team: { select: { id: true, name: true } },
           sessions: { where: { athleteId }, include: { feedback: true } },
         },
         orderBy: { date: 'asc' },
@@ -132,22 +144,27 @@ export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
     const athleteId = request.user.sub
     const { id } = request.params as { id: string }
 
-    const plan = await fastify.prisma.trainingPlan.findUnique({
-      where: { id },
-      include: {
-        exerciseGroups: EXERCISE_GROUPS_INCLUDE,
-        team: { select: { id: true, name: true } },
-        sessions: { where: { athleteId }, include: { feedback: true, stravaActivity: { select: { id: true, stravaId: true, name: true, type: true, startDateLocal: true, distance: true, movingTime: true, averageHeartrate: true, maxHeartrate: true, totalElevationGain: true, sessionId: true } } } },
-      },
-    })
+    const [plan, athleteRecord] = await Promise.all([
+      fastify.prisma.trainingPlan.findUnique({
+        where: { id },
+        include: {
+          exerciseGroups: EXERCISE_GROUPS_INCLUDE,
+          sessions: { where: { athleteId }, include: { feedback: true, stravaActivity: { select: { id: true, stravaId: true, name: true, type: true, startDateLocal: true, distance: true, movingTime: true, averageHeartrate: true, maxHeartrate: true, totalElevationGain: true, sessionId: true } } } },
+        },
+      }),
+      fastify.prisma.user.findUnique({ where: { id: athleteId }, select: { trainerId: true, isActive: true } }),
+    ])
 
     if (!plan) return reply.status(404).send({ error: 'Plan not found' })
-    if (!plan.teamId) return reply.status(403).send({ error: 'Forbidden' })
 
-    const member = await fastify.prisma.teamMember.findUnique({
-      where: { teamId_athleteId: { teamId: plan.teamId, athleteId } },
-    })
-    if (!member) return reply.status(403).send({ error: 'Forbidden' })
+    const isCreator = plan.trainerId === athleteId
+    const isTrainerPlan =
+      !isCreator &&
+      plan.type === 'GROUP' &&
+      plan.trainerId === athleteRecord?.trainerId &&
+      athleteRecord?.isActive
+
+    if (!isCreator && !isTrainerPlan) return reply.status(403).send({ error: 'Forbidden' })
 
     return {
       ...plan,

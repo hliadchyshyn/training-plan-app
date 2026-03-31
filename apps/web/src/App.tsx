@@ -14,6 +14,8 @@ import { EditIndividualPlanPage } from './pages/trainer/EditIndividualPlanPage.j
 import { AdminPage } from './pages/admin/AdminPage.js'
 import { StravaConnectPage } from './pages/StravaConnectPage.js'
 import { StravaCallbackPage } from './pages/StravaCallbackPage.js'
+import StravaLoginCallbackPage from './pages/StravaLoginCallbackPage.js'
+import ProfilePage from './pages/ProfilePage.js'
 import IntervalsConnectPage from './pages/IntervalsConnectPage.js'
 import WatchWorkoutsPage from './pages/WatchWorkoutsPage.js'
 import WatchWorkoutDetailPage from './pages/WatchWorkoutDetailPage.js'
@@ -46,10 +48,11 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/strava/login-callback" element={<StravaLoginCallbackPage />} />
         <Route path="/404" element={<NotFoundPage />} />
 
         <Route
@@ -115,6 +118,7 @@ export default function App() {
           <Route path="/strava/connect" element={<StravaConnectPage />} />
           <Route path="/strava/connected" element={<StravaCallbackPage />} />
           <Route path="/intervals" element={<IntervalsConnectPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
 
           <Route path="/watch-workouts" element={<WatchWorkoutsPage />} />
           <Route path="/watch-workouts/new" element={<CreateWatchWorkoutPage />} />

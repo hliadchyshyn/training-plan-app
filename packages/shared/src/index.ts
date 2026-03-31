@@ -50,6 +50,28 @@ export interface WatchWorkoutStep {
   name?: string
 }
 
+// Workout Template types
+export interface WorkoutTemplate {
+  id: string
+  creatorId: string
+  creatorName: string
+  name: string
+  sport: WatchSport
+  steps: WatchWorkoutStep[]
+  notes?: string | null
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateTemplateDto {
+  name: string
+  sport: WatchSport
+  steps: WatchWorkoutStep[]
+  notes?: string
+  isPublic?: boolean
+}
+
 // Auth DTOs
 export interface RegisterDto {
   email: string

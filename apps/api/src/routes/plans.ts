@@ -12,7 +12,6 @@ const exerciseGroupSchema = z.object({
 
 const createGroupPlanSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  teamId: z.string().uuid(),
   title: z.string().optional(),
   notes: z.string().optional(),
   groups: z.array(exerciseGroupSchema).min(1),
@@ -66,11 +65,6 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const body = createGroupPlanSchema.parse(request.body)
       const trainerId = request.user.sub
 
-      const team = await fastify.prisma.trainerTeam.findUnique({ where: { id: body.teamId } })
-      if (!team || team.trainerId !== trainerId) {
-        return reply.status(403).send({ error: 'Not your team' })
-      }
-
       const plan = await fastify.prisma.trainingPlan.create({
         data: {
           trainerId,
@@ -78,7 +72,6 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
           type: 'GROUP',
           title: body.title,
           notes: body.notes,
-          teamId: body.teamId,
           exerciseGroups: { create: toGroupCreate(body.groups) },
         },
         include: { exerciseGroups: EXERCISE_GROUPS_INCLUDE },
@@ -93,6 +86,11 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const body = createIndividualPlanSchema.parse(request.body)
       const trainerId = request.user.sub
+
+      const athlete = await fastify.prisma.user.findUnique({ where: { id: body.athleteId }, select: { trainerId: true } })
+      if (!athlete || athlete.trainerId !== trainerId) {
+        return reply.status(403).send({ error: 'Athlete not assigned to you' })
+      }
 
       const plan = await fastify.prisma.individualPlan.create({
         data: {
@@ -116,7 +114,6 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const q = request.query as {
         date?: string
         tab?: 'upcoming' | 'past'
-        teamId?: string
         athleteId?: string
         month?: string
         groupPage?: string
@@ -145,7 +142,6 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const groupWhere = {
         trainerId,
         ...(q.date ? { date: new Date(q.date) } : hasDateFilter ? { date: dateFilter } : {}),
-        ...(q.teamId ? { teamId: q.teamId } : {}),
       }
 
       const indWhere = {
@@ -159,7 +155,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
         const [groupPlans, individualPlans] = await Promise.all([
           fastify.prisma.trainingPlan.findMany({
             where: groupWhere,
-            include: { exerciseGroups: EXERCISE_GROUPS_INCLUDE, team: { select: { id: true, name: true } } },
+            include: { exerciseGroups: EXERCISE_GROUPS_INCLUDE },
             orderBy: { date: 'desc' },
           }),
           fastify.prisma.individualPlan.findMany({
@@ -176,7 +172,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const [groupData, groupTotal, indData, indTotal] = await Promise.all([
         fastify.prisma.trainingPlan.findMany({
           where: groupWhere,
-          include: { exerciseGroups: EXERCISE_GROUPS_INCLUDE, team: { select: { id: true, name: true } } },
+          include: { exerciseGroups: EXERCISE_GROUPS_INCLUDE },
           orderBy: { date: orderDir },
           skip: (groupPage - 1) * limit,
           take: limit,
@@ -206,14 +202,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const { id } = request.params as { id: string }
 
       const [plan, sessions] = await Promise.all([
-        fastify.prisma.trainingPlan.findUnique({
-          where: { id },
-          include: {
-            team: {
-              include: { members: { include: { athlete: { select: ATHLETE_SELECT } } } },
-            },
-          },
-        }),
+        fastify.prisma.trainingPlan.findUnique({ where: { id } }),
         fastify.prisma.athleteSession.findMany({
           where: { planId: id },
           include: {
@@ -227,20 +216,26 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       ])
 
       if (plan) {
-        const teamMembers = plan.team?.members ?? []
+        // Get trainer's athletes for GROUP plan feedback view
+        const myAthletes = plan.type === 'GROUP'
+          ? await fastify.prisma.user.findMany({
+              where: { trainerId: plan.trainerId },
+              select: ATHLETE_SELECT,
+            })
+          : []
+
         type SessionRow = (typeof sessions)[number]
-        type MemberRow = (typeof teamMembers)[number]
 
         const sessionMap = new Map<string, SessionRow>(sessions.map((s) => [s.athleteId, s]))
 
-        const result = teamMembers.map((member: MemberRow) => {
-          const session = sessionMap.get(member.athleteId)
+        const result = myAthletes.map((athlete) => {
+          const session = sessionMap.get(athlete.id)
           const stravaActivity = session?.stravaActivity
             ? { ...session.stravaActivity, stravaId: session.stravaActivity.stravaId.toString() }
             : null
           return {
-            id: session?.id ?? `pending-${member.athleteId}`,
-            athlete: member.athlete,
+            id: session?.id ?? `pending-${athlete.id}`,
+            athlete,
             exerciseGroup: session?.exerciseGroup ?? null,
             date: session?.date ?? null,
             feedback: session?.feedback ?? null,
@@ -250,7 +245,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
         })
 
         for (const session of sessions) {
-          if (!teamMembers.find((m: MemberRow) => m.athleteId === session.athleteId)) {
+          if (!myAthletes.find((a) => a.id === session.athleteId)) {
             const stravaActivity = session.stravaActivity
               ? { ...session.stravaActivity, stravaId: session.stravaActivity.stravaId.toString() }
               : null

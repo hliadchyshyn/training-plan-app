@@ -162,6 +162,45 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   )
 
+  // POST /api/watch-workouts/:id/schedule — add to training calendar
+  fastify.post(
+    '/:id/schedule',
+    { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) },
+    async (request, reply) => {
+      const userId = request.user.sub as string
+      const { id } = request.params as { id: string }
+      const { date } = request.body as { date: string }
+      if (!date) return reply.code(400).send({ error: 'date required' })
+
+      const workout = await fastify.prisma.watchWorkout.findUnique({ where: { id } })
+      if (!workout) return reply.code(404).send({ error: 'Not found' })
+      if (workout.creatorId !== userId) return reply.code(403).send({ error: 'Forbidden' })
+
+      const planDate = new Date(date)
+      if (isNaN(planDate.getTime())) return reply.code(400).send({ error: 'Invalid date' })
+
+      const plan = await fastify.prisma.trainingPlan.create({
+        data: {
+          trainerId: userId,
+          date: planDate,
+          type: 'GROUP',
+          title: workout.name,
+          exerciseGroups: {
+            create: [{
+              name: workout.name,
+              rawText: workout.notes ?? workout.name,
+              order: 0,
+              parsedData: null,
+            }],
+          },
+        },
+      })
+
+      reply.code(201)
+      return { planId: plan.id }
+    },
+  )
+
   // GET /api/watch-workouts/:id/export/fit
   fastify.get(
     '/:id/export/fit',

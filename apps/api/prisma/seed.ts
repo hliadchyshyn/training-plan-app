@@ -47,11 +47,17 @@ async function main() {
   if (!trainer) {
     const passwordHash = await bcrypt.hash('changeme123', 10)
     trainer = await prisma.user.create({
-      data: { email: 'trainer@test.com', name: 'Олексій Тренер', passwordHash, role: 'TRAINER' },
+      data: { email: 'trainer@test.com', name: 'Олексій Тренер', passwordHash, role: 'TRAINER', inviteCode: 'TEST01' },
     })
-    console.log('Trainer created: trainer@test.com')
+    console.log('Trainer created: trainer@test.com (code: TEST01)')
   } else {
-    console.log('Trainer exists: trainer@test.com')
+    // Ensure existing trainer has an invite code
+    if (!trainer.inviteCode) {
+      trainer = await prisma.user.update({ where: { id: trainer.id }, data: { inviteCode: 'TEST01' } })
+      console.log('Trainer invite code set: TEST01')
+    } else {
+      console.log(`Trainer exists: trainer@test.com (code: ${trainer.inviteCode})`)
+    }
   }
 
   // ── Test athletes ──────────────────────────────────────
@@ -64,29 +70,15 @@ async function main() {
       let u = await prisma.user.findFirst({ where: { email: { equals: ae, mode: 'insensitive' } } })
       if (!u) {
         const passwordHash = await bcrypt.hash('changeme123', 10)
-        u = await prisma.user.create({ data: { email: ae, name, passwordHash, role: 'ATHLETE' } })
+        u = await prisma.user.create({ data: { email: ae, name, passwordHash, role: 'ATHLETE', trainerId: trainer!.id } })
         console.log(`Athlete created: ${ae}`)
+      } else if (!u.trainerId) {
+        u = await prisma.user.update({ where: { id: u.id }, data: { trainerId: trainer!.id } })
+        console.log(`Athlete linked to trainer: ${ae}`)
       }
       return u
     }),
   )
-
-  // ── Track&Speed team ───────────────────────────────────
-  let team = await prisma.trainerTeam.findFirst({ where: { trainerId: trainer.id, name: 'Track&Speed' } })
-  if (!team) {
-    team = await prisma.trainerTeam.create({ data: { trainerId: trainer.id, name: 'Track&Speed' } })
-    console.log('Team Track&Speed created')
-  }
-
-  // Add athletes to team
-  for (const athlete of athletes) {
-    await prisma.teamMember.upsert({
-      where: { teamId_athleteId: { teamId: team.id, athleteId: athlete.id } },
-      create: { teamId: team.id, athleteId: athlete.id },
-      update: {},
-    })
-  }
-  console.log('Athletes added to team')
 
   // ── Group plans: this week + next week ─────────────────
   const groupPlanDefs = [
@@ -135,7 +127,6 @@ async function main() {
           date,
           type: 'GROUP',
           title: def.title,
-          teamId: team.id,
           exerciseGroups: {
             create: def.groups.map((g, i) => ({
               name: g.name,
@@ -188,6 +179,197 @@ async function main() {
       })
       console.log(`Individual plan created for ${athletes[0].name} week+${def.weekOffset}`)
     }
+  }
+
+  // ── Workout Templates ──────────────────────────────────
+  const existingTemplates = await prisma.workoutTemplate.count({ where: { creatorId: trainer.id } })
+  if (existingTemplates === 0) {
+    const templates = [
+      // ── RUNNING ────────────────────────────────────────
+      {
+        name: 'Розминка 10 хв + заминка',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Базова розминка і заминка для будь-якого тренування',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Розминка' },
+          { type: 'ACTIVE', durationUnit: 'OPEN', targetUnit: 'OPEN', name: 'Основна частина' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка' },
+        ],
+      },
+      {
+        name: 'Інтервали 10×400м',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Класичне швидкісне тренування. Пейс: 3:00-3:30/км',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 900, targetUnit: 'OPEN', name: 'Розминка 15 хв' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 10 },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'PACE', targetFrom: 180, targetTo: 210, name: '400м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 90, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка 10 хв' },
+        ],
+      },
+      {
+        name: 'Інтервали 5×1000м',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Тренування на порозі. Пейс: 3:20-3:50/км',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 900, targetUnit: 'OPEN', name: 'Розминка 15 хв' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 5 },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 1000, targetUnit: 'PACE', targetFrom: 200, targetTo: 230, name: '1000м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 180, targetUnit: 'OPEN', name: 'Відпочинок 3 хв' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка' },
+        ],
+      },
+      {
+        name: 'Темповий біг 20 хв',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Безперервний темповий біг. Пейс: 3:45-4:10/км',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Розминка 10 хв' },
+          { type: 'ACTIVE', durationUnit: 'TIME', durationValue: 1200, targetUnit: 'PACE', targetFrom: 225, targetTo: 250, name: 'Темп 20 хв' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка 10 хв' },
+        ],
+      },
+      {
+        name: 'Пірамідні інтервали',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: '200-400-600-800-600-400-200м. Класична піраміда',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 900, targetUnit: 'OPEN', name: 'Розминка 15 хв' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'PACE', targetFrom: 165, targetTo: 185, name: '200м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 60, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'PACE', targetFrom: 180, targetTo: 200, name: '400м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 90, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 600, targetUnit: 'PACE', targetFrom: 190, targetTo: 210, name: '600м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 120, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 800, targetUnit: 'PACE', targetFrom: 200, targetTo: 220, name: '800м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 180, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 600, targetUnit: 'PACE', targetFrom: 190, targetTo: 210, name: '600м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 120, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'PACE', targetFrom: 180, targetTo: 200, name: '400м' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 90, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'PACE', targetFrom: 165, targetTo: 185, name: '200м' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка 10 хв' },
+        ],
+      },
+      {
+        name: 'Легкий відновлювальний крос 30 хв',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Відновлення після важких тренувань. Пейс: 5:30-6:30/км',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 300, targetUnit: 'OPEN', name: 'Ходьба 5 хв' },
+          { type: 'ACTIVE', durationUnit: 'TIME', durationValue: 1800, targetUnit: 'PACE', targetFrom: 330, targetTo: 390, name: 'Легкий крос' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 300, targetUnit: 'OPEN', name: 'Ходьба + розтяжка' },
+        ],
+      },
+      {
+        name: 'Фартлек 40 хв',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Вільні прискорення. 5 хв легко → 2 хв швидко × 6',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Розминка 10 хв' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 6 },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 300, targetUnit: 'PACE', targetFrom: 300, targetTo: 360, name: 'Легко 5 хв' },
+          { type: 'ACTIVE', durationUnit: 'TIME', durationValue: 120, targetUnit: 'PACE', targetFrom: 210, targetTo: 240, name: 'Швидко 2 хв' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка 10 хв' },
+        ],
+      },
+      {
+        name: 'Спринти 8×100м',
+        sport: 'RUNNING' as const,
+        isPublic: true,
+        notes: 'Максимальна швидкість. Повний відпочинок між повторами',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 900, targetUnit: 'OPEN', name: 'Розминка 15 хв' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 8 },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 100, targetUnit: 'OPEN', name: '100м максимально' },
+          { type: 'REST', durationUnit: 'TIME', durationValue: 180, targetUnit: 'OPEN', name: 'Відпочинок 3 хв' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка' },
+        ],
+      },
+      // ── CYCLING ────────────────────────────────────────
+      {
+        name: 'Велосипед — аеробна база 60 хв',
+        sport: 'CYCLING' as const,
+        isPublic: true,
+        notes: 'Рівномірний аеробний темп для розвитку бази',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Розкочування 10 хв' },
+          { type: 'ACTIVE', durationUnit: 'TIME', durationValue: 2400, targetUnit: 'OPEN', name: 'Аеробний темп 40 хв' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка 10 хв' },
+        ],
+      },
+      {
+        name: 'Велосипед — інтервали 5×5 хв',
+        sport: 'CYCLING' as const,
+        isPublic: true,
+        notes: 'VO2max інтервали. 5 хв зусилля / 5 хв відновлення',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'TIME', durationValue: 900, targetUnit: 'OPEN', name: 'Розкочування 15 хв' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 5 },
+          { type: 'ACTIVE', durationUnit: 'TIME', durationValue: 300, targetUnit: 'OPEN', name: 'Зусилля 5 хв' },
+          { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 300, targetUnit: 'OPEN', name: 'Відновлення 5 хв' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN', name: 'Заминка 10 хв' },
+        ],
+      },
+      // ── SWIMMING ────────────────────────────────────────
+      {
+        name: 'Плавання — аеробна витривалість',
+        sport: 'SWIMMING' as const,
+        isPublic: true,
+        notes: '10×100м з відпочинком 20 сек. Рівний темп',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN', name: 'Розминка 200м' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 10 },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 100, targetUnit: 'OPEN', name: '100м' },
+          { type: 'REST', durationUnit: 'TIME', durationValue: 20, targetUnit: 'OPEN', name: 'Відпочинок' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN', name: 'Заминка 200м' },
+        ],
+      },
+      {
+        name: 'Плавання — швидкісні 8×50м',
+        sport: 'SWIMMING' as const,
+        isPublic: true,
+        notes: 'Спринти 50м з повним відновленням',
+        steps: [
+          { type: 'WARMUP', durationUnit: 'DISTANCE', durationValue: 300, targetUnit: 'OPEN', name: 'Розминка 300м' },
+          { type: 'REPEAT_BEGIN', durationUnit: 'OPEN', targetUnit: 'OPEN', repeatCount: 8 },
+          { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 50, targetUnit: 'OPEN', name: '50м максимально' },
+          { type: 'REST', durationUnit: 'TIME', durationValue: 60, targetUnit: 'OPEN', name: 'Відпочинок 60 сек' },
+          { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+          { type: 'COOLDOWN', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN', name: 'Заминка' },
+        ],
+      },
+    ]
+
+    for (const t of templates) {
+      await prisma.workoutTemplate.create({
+        data: {
+          creatorId: trainer.id,
+          name: t.name,
+          sport: t.sport,
+          steps: t.steps as import('@prisma/client').Prisma.InputJsonValue,
+          notes: t.notes,
+          isPublic: t.isPublic,
+        },
+      })
+      console.log(`Template created: ${t.name}`)
+    }
+  } else {
+    console.log(`Templates already seeded (${existingTemplates} found)`)
   }
 
   console.log('\nSeed complete.')

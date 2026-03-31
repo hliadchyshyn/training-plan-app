@@ -24,9 +24,10 @@ declare module 'fastify' {
 }
 
 const plugin: FastifyPluginAsync = async (fastify) => {
-  await fastify.register(jwt, {
-    secret: process.env.JWT_SECRET ?? 'dev-secret',
-  })
+  const jwtSecret = process.env.JWT_SECRET
+  if (!jwtSecret) throw new Error('JWT_SECRET environment variable is required')
+
+  await fastify.register(jwt, { secret: jwtSecret })
 
   fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
