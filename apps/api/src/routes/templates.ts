@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import type { WatchWorkoutStep, WatchSport } from '@training-plan/shared'
+import type { WatchSport } from '@training-plan/shared'
 
 const watchStepSchema = z.object({
   type: z.enum(['WARMUP', 'ACTIVE', 'RECOVERY', 'COOLDOWN', 'REST', 'REPEAT_BEGIN', 'REPEAT_END']),
@@ -105,7 +106,7 @@ export const templatesRoutes: FastifyPluginAsync = async (fastify) => {
           creatorId: userId,
           name: workout.name,
           sport: workout.sport,
-          steps: workout.steps,
+          steps: workout.steps as Prisma.InputJsonValue,
           notes: workout.notes,
           isPublic,
         },
@@ -209,7 +210,7 @@ export const templatesRoutes: FastifyPluginAsync = async (fastify) => {
           creatorId: userId,
           name: source.name,
           sport: source.sport,
-          steps: source.steps,
+          steps: source.steps as Prisma.InputJsonValue,
           notes: source.notes,
           isPublic: false,
         },
@@ -250,7 +251,6 @@ export const templatesRoutes: FastifyPluginAsync = async (fastify) => {
               name: template.name,
               rawText: template.notes ?? template.name,
               order: 0,
-              parsedData: null,
             }],
           },
         },
@@ -282,7 +282,7 @@ export const templatesRoutes: FastifyPluginAsync = async (fastify) => {
           creatorId: userId,
           name: name ?? template.name,
           sport: template.sport,
-          steps: template.steps,
+          steps: template.steps as Prisma.InputJsonValue,
           notes: template.notes,
           sourceType: 'TEMPLATE',
           sourceId: template.id,

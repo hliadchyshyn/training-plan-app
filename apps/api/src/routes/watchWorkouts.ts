@@ -190,7 +190,6 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
               name: workout.name,
               rawText: workout.notes ?? workout.name,
               order: 0,
-              parsedData: null,
             }],
           },
         },
