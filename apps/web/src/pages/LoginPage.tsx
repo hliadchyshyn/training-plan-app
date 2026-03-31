@@ -58,7 +58,7 @@ export function LoginPage() {
     try {
       const { data } = await api.post('/auth/google', { credential: response.credential })
       setAuth(data.accessToken, data.user)
-      navigate('/')
+      navigate(data.isNewUser ? '/onboarding' : '/')
     } catch (err) {
       setError(getErrorMessage(err, 'Помилка входу через Google'))
     } finally {

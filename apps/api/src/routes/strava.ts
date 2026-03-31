@@ -197,6 +197,7 @@ export async function stravaRoutes(fastify: FastifyInstance) {
       where: { stravaAccount: { stravaAthleteId: BigInt(athlete.id) } },
     })
 
+    let isNewUser = false
     if (!user) {
       const email = athlete.email ?? `strava_${athlete.id}@strava.local`
       const existing = await fastify.prisma.user.findFirst({
@@ -205,6 +206,7 @@ export async function stravaRoutes(fastify: FastifyInstance) {
       user = existing ?? await fastify.prisma.user.create({
         data: { email, name: `${athlete.firstname} ${athlete.lastname}`.trim() },
       })
+      isNewUser = !existing
     }
 
     await fastify.prisma.stravaAccount.upsert({
@@ -239,7 +241,7 @@ export async function stravaRoutes(fastify: FastifyInstance) {
       secure: IS_PROD,
     })
 
-    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
+    return { accessToken, isNewUser, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
   })
 
   // POST /api/strava/link — link Strava to authenticated user (frontend-handled OAuth)

@@ -34,7 +34,7 @@ export default function StravaLoginCallbackPage() {
       api.post('/strava/login-exchange', { code })
         .then((res) => {
           setAuth(res.data.accessToken, res.data.user)
-          navigate('/')
+          navigate(res.data.isNewUser ? '/onboarding' : '/')
         })
         .catch(() => navigate('/login?error=strava_failed'))
       return

@@ -273,8 +273,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       where: { OR: [{ googleId }, { email: { equals: email, mode: 'insensitive' } }] },
     })
 
+    let isNewUser = false
     if (user) {
-      // Link googleId if user registered via email before
       if (!user.googleId) {
         user = await fastify.prisma.user.update({ where: { id: user.id }, data: { googleId } })
       }
@@ -282,7 +282,42 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       user = await fastify.prisma.user.create({
         data: { email, name, googleId },
       })
+      isNewUser = true
     }
+
+    const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
+    setRefreshCookie(reply, refreshToken)
+    return { accessToken, isNewUser, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
+  })
+
+  // POST /api/auth/onboarding — set role and optional trainer invite code after OAuth registration
+  fastify.post('/onboarding', { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) }, async (request, reply) => {
+    const { role, inviteCode } = request.body as { role: 'ATHLETE' | 'TRAINER'; inviteCode?: string }
+    const userId = request.user.sub
+
+    let trainerId: string | undefined
+    if (role === 'ATHLETE' && inviteCode) {
+      const trainer = await fastify.prisma.user.findUnique({ where: { inviteCode: inviteCode.toUpperCase() } })
+      if (!trainer || trainer.role !== 'TRAINER') {
+        return reply.status(400).send({ error: 'Невірний код тренера' })
+      }
+      trainerId = trainer.id
+    }
+
+    let newInviteCode: string | undefined
+    if (role === 'TRAINER') {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+        const exists = await fastify.prisma.user.findUnique({ where: { inviteCode: code } })
+        if (!exists) { newInviteCode = code; break }
+      }
+    }
+
+    const user = await fastify.prisma.user.update({
+      where: { id: userId },
+      data: { role, trainerId: trainerId ?? null, inviteCode: newInviteCode ?? undefined },
+    })
 
     const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
     setRefreshCookie(reply, refreshToken)
