@@ -35,6 +35,7 @@ export function LoginPage() {
         size: 'large',
         text: 'signin_with',
         locale: 'uk',
+        width: googleBtnRef.current!.offsetWidth || 368,
       })
     }
 

@@ -9,21 +9,38 @@ export default function StravaLoginCallbackPage() {
   const setAuth = useAuthStore((s) => s.setAuth)
 
   useEffect(() => {
+    const code = params.get('code')
     const token = params.get('token')
     const error = params.get('error')
 
-    if (error || !token) {
+    if (error) {
       navigate('/login?error=strava_failed')
       return
     }
 
-    // Store token and fetch user profile
-    api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => {
-        setAuth(token, res.data)
-        navigate('/')
-      })
-      .catch(() => navigate('/login?error=strava_failed'))
+    if (token) {
+      // Legacy flow: token passed directly
+      api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => {
+          setAuth(token, res.data)
+          navigate('/')
+        })
+        .catch(() => navigate('/login?error=strava_failed'))
+      return
+    }
+
+    if (code) {
+      // New flow: exchange code for token via API
+      api.post('/strava/login-exchange', { code })
+        .then((res) => {
+          setAuth(res.data.accessToken, res.data.user)
+          navigate('/')
+        })
+        .catch(() => navigate('/login?error=strava_failed'))
+      return
+    }
+
+    navigate('/login?error=strava_failed')
   }, [params, navigate, setAuth])
 
   return <p style={{ padding: 32, textAlign: 'center' }}>Вхід через Strava...</p>

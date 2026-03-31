@@ -86,6 +86,7 @@ export default function ProfilePage() {
       })
       window.google?.accounts.id.renderButton(googleBtnRef.current!, {
         theme: 'outline', size: 'medium', text: 'signin_with', locale: 'uk',
+        width: googleBtnRef.current!.offsetWidth || 200,
       })
     }
 

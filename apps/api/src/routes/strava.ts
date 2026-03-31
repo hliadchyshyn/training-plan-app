@@ -179,6 +179,108 @@ export async function stravaRoutes(fastify: FastifyInstance) {
     }
   })
 
+  // POST /api/strava/login-exchange — exchange Strava code for JWT (frontend-handled OAuth)
+  fastify.post('/login-exchange', async (request, reply) => {
+    const { code } = request.body as { code?: string }
+    if (!code) return reply.status(400).send({ error: 'Missing code' })
+
+    const tokenResp = await axios.post(STRAVA_TOKEN_URL, {
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+    })
+
+    const { access_token, refresh_token, expires_at, athlete } = tokenResp.data
+
+    let user = await fastify.prisma.user.findFirst({
+      where: { stravaAccount: { stravaAthleteId: BigInt(athlete.id) } },
+    })
+
+    if (!user) {
+      const email = athlete.email ?? `strava_${athlete.id}@strava.local`
+      const existing = await fastify.prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' } },
+      })
+      user = existing ?? await fastify.prisma.user.create({
+        data: { email, name: `${athlete.firstname} ${athlete.lastname}`.trim() },
+      })
+    }
+
+    await fastify.prisma.stravaAccount.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        stravaAthleteId: BigInt(athlete.id),
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiresAt: new Date(expires_at * 1000),
+        scope: 'activity:read_all',
+      },
+      update: {
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiresAt: new Date(expires_at * 1000),
+      },
+    })
+
+    const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret'
+    const payload = { sub: user.id, email: user.email, role: user.role }
+    const accessToken = fastify.jwt.sign(payload, { expiresIn: '15m' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const refreshToken = fastify.jwt.sign(payload, { secret: REFRESH_SECRET, expiresIn: '7d' } as any)
+
+    const IS_PROD = process.env.NODE_ENV === 'production'
+    reply.setCookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      path: '/api/auth/refresh',
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite: IS_PROD ? 'none' : 'lax',
+      secure: IS_PROD,
+    })
+
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
+  })
+
+  // POST /api/strava/link — link Strava to authenticated user (frontend-handled OAuth)
+  fastify.post('/link', { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) }, async (request) => {
+    const userId = request.user.sub
+    const { code } = request.body as { code?: string }
+    if (!code) throw new Error('Missing code')
+
+    const tokenResp = await axios.post(STRAVA_TOKEN_URL, {
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+    })
+
+    const { access_token, refresh_token, expires_at, athlete } = tokenResp.data
+
+    await fastify.prisma.stravaAccount.upsert({
+      where: { userId },
+      create: {
+        userId,
+        stravaAthleteId: BigInt(athlete.id),
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiresAt: new Date(expires_at * 1000),
+      },
+      update: {
+        stravaAthleteId: BigInt(athlete.id),
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiresAt: new Date(expires_at * 1000),
+      },
+    })
+
+    syncActivities(userId, fastify.prisma, 8).then(() =>
+      matchActivities(userId, fastify.prisma)
+    ).catch(() => {})
+
+    return { ok: true }
+  })
+
   // DELETE /api/strava/disconnect
   fastify.delete('/disconnect', { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) }, async (request) => {
     const userId = request.user.sub

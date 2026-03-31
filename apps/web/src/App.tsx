@@ -15,6 +15,7 @@ import { AdminPage } from './pages/admin/AdminPage.js'
 import { StravaConnectPage } from './pages/StravaConnectPage.js'
 import { StravaCallbackPage } from './pages/StravaCallbackPage.js'
 import StravaLoginCallbackPage from './pages/StravaLoginCallbackPage.js'
+import StravaConnectCallbackPage from './pages/StravaConnectCallbackPage.js'
 import ProfilePage from './pages/ProfilePage.js'
 import IntervalsConnectPage from './pages/IntervalsConnectPage.js'
 import WatchWorkoutsPage from './pages/WatchWorkoutsPage.js'
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/strava/login-callback" element={<StravaLoginCallbackPage />} />
+        <Route path="/strava/connect-callback" element={<StravaConnectCallbackPage />} />
         <Route path="/404" element={<NotFoundPage />} />
 
         <Route
