@@ -176,7 +176,7 @@ function GroupPlansPanel() {
     queryFn: () => api.get('/plans', { params: { tab: timeTab, ...(month && { month }), groupPage: page, limit: LIMIT } }).then((r) => r.data),
   })
 
-  type GroupPlan = { id: string; date: string; title: string | null; exerciseGroups: Array<{ id: string }> }
+  type GroupPlan = { id: string; date: string; title: string | null; exerciseGroups: Array<{ id: string }>; team?: { name: string } | null }
   const plans: GroupPlan[] = data?.groupPlans?.data ?? []
   const totalPages: number = data?.groupPlans?.totalPages ?? 1
 

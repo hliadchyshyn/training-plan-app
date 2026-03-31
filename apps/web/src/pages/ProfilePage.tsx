@@ -27,8 +27,6 @@ export default function ProfilePage() {
   const navigate = useNavigate()
   const { logout } = useAuthStore()
   const googleBtnRef = useRef<HTMLDivElement>(null)
-  const linkGoogleMutateRef = useRef(linkGoogle.mutate)
-  useEffect(() => { linkGoogleMutateRef.current = linkGoogle.mutate })
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' })
@@ -58,6 +56,8 @@ export default function ProfilePage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['me'] }); flash('Google підключено') },
     onError: flashErr,
   })
+  const linkGoogleMutateRef = useRef(linkGoogle.mutate)
+  useEffect(() => { linkGoogleMutateRef.current = linkGoogle.mutate })
 
   const unlinkGoogle = useMutation({
     mutationFn: () => api.delete('/auth/google/link'),
