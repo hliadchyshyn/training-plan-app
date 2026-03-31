@@ -22,11 +22,14 @@ FROM node:20-alpine
 
 RUN apk add --no-cache openssl
 
+WORKDIR /workspace
+
+COPY --from=builder /workspace/node_modules ./node_modules
+COPY --from=builder /workspace/package.json ./
+
 WORKDIR /workspace/apps/api
 
 COPY --from=builder /workspace/apps/api/package.json ./
-COPY --from=builder /workspace/node_modules /workspace/node_modules
-COPY --from=builder /workspace/apps/api/node_modules ./node_modules
 COPY --from=builder /workspace/apps/api/dist ./dist
 COPY --from=builder /workspace/apps/api/prisma ./prisma
 
