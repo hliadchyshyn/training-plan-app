@@ -184,12 +184,17 @@ export async function stravaRoutes(fastify: FastifyInstance) {
     const { code } = request.body as { code?: string }
     if (!code) return reply.status(400).send({ error: 'Missing code' })
 
-    const tokenResp = await axios.post(STRAVA_TOKEN_URL, {
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code,
-      grant_type: 'authorization_code',
-    })
+    let tokenResp
+    try {
+      tokenResp = await axios.post(STRAVA_TOKEN_URL, {
+        client_id: process.env.STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+      })
+    } catch {
+      return reply.status(400).send({ error: 'Strava code exchange failed. Code may be expired.' })
+    }
 
     const { access_token, refresh_token, expires_at, athlete } = tokenResp.data
 
@@ -250,12 +255,17 @@ export async function stravaRoutes(fastify: FastifyInstance) {
     const { code } = request.body as { code?: string }
     if (!code) throw new Error('Missing code')
 
-    const tokenResp = await axios.post(STRAVA_TOKEN_URL, {
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code,
-      grant_type: 'authorization_code',
-    })
+    let tokenResp
+    try {
+      tokenResp = await axios.post(STRAVA_TOKEN_URL, {
+        client_id: process.env.STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+      })
+    } catch {
+      throw Object.assign(new Error('Strava code exchange failed'), { statusCode: 400 })
+    }
 
     const { access_token, refresh_token, expires_at, athlete } = tokenResp.data
 
