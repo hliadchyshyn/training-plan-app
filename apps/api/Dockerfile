@@ -5,6 +5,7 @@ RUN apk add --no-cache openssl
 WORKDIR /workspace
 
 COPY package.json ./
+COPY tsconfig.base.json ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared/package.json ./packages/shared/
 

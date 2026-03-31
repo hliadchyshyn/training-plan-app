@@ -35,7 +35,7 @@ const sessionWithFeedbackSchema = createSessionSchema.extend({
 export const athleteRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', fastify.authenticate)
 
-  fastify.get('/plans/week', async (request) => {
+  fastify.get('/plans/week', async (request, reply) => {
     const athleteId = request.user.sub
     const { date } = request.query as { date?: string }
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
