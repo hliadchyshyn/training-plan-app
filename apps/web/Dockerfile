@@ -1,12 +1,14 @@
+# syntax=docker/dockerfile:1
 FROM node:20-alpine AS builder
 
 WORKDIR /workspace
 
-COPY package.json ./
+COPY package.json package-lock.json ./
+COPY tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared

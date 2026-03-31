@@ -1,15 +1,16 @@
+# syntax=docker/dockerfile:1
 FROM node:20-alpine AS builder
 
 RUN apk add --no-cache openssl
 
 WORKDIR /workspace
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY tsconfig.base.json ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY apps/api ./apps/api
 COPY packages/shared ./packages/shared
@@ -24,14 +25,18 @@ RUN apk add --no-cache openssl
 
 WORKDIR /workspace
 
-COPY --from=builder /workspace/node_modules ./node_modules
-COPY --from=builder /workspace/package.json ./
+COPY package.json package-lock.json ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 
 WORKDIR /workspace/apps/api
 
-COPY --from=builder /workspace/apps/api/package.json ./
 COPY --from=builder /workspace/apps/api/dist ./dist
+COPY --from=builder /workspace/apps/api/src ./src
 COPY --from=builder /workspace/apps/api/prisma ./prisma
+COPY --from=builder /workspace/node_modules/.prisma /workspace/node_modules/.prisma
 
 EXPOSE 3001
 
