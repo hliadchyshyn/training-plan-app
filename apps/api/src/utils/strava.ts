@@ -1,8 +1,14 @@
-import type { PrismaClient, StravaAccount } from '@prisma/client'
+import type { PrismaClient, StravaAccount, Prisma } from '@prisma/client'
 import axios from 'axios'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
+
+interface StravaTokenResponse {
+  access_token: string
+  refresh_token: string
+  expires_at: number
+}
 
 export interface StravaActivityRaw {
   id: number
@@ -26,7 +32,7 @@ export async function getValidToken(account: StravaAccount, prisma: PrismaClient
     return account.accessToken
   }
 
-  const resp = await axios.post(STRAVA_TOKEN_URL, {
+  const resp = await axios.post<StravaTokenResponse>(STRAVA_TOKEN_URL, {
     client_id: process.env.STRAVA_CLIENT_ID,
     client_secret: process.env.STRAVA_CLIENT_SECRET,
     grant_type: 'refresh_token',
@@ -44,7 +50,7 @@ export async function getValidToken(account: StravaAccount, prisma: PrismaClient
     },
   })
 
-  return access_token as string
+  return access_token
 }
 
 export async function fetchStravaActivities(token: string, afterUnix: number): Promise<StravaActivityRaw[]> {
@@ -93,7 +99,7 @@ export async function syncActivities(userId: string, prisma: PrismaClient, weeks
         averageSpeed: a.average_speed ?? null,
         averageCadence: a.average_cadence ?? null,
         totalElevationGain: a.total_elevation_gain ?? null,
-        splitsMetric: a.splits_metric ? (a.splits_metric as object) : undefined,
+        splitsMetric: a.splits_metric ? (a.splits_metric as Prisma.InputJsonValue) : undefined,
       },
       update: {
         name: a.name,

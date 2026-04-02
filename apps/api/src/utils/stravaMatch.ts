@@ -43,131 +43,160 @@ export async function matchActivities(athleteId: string, prisma: PrismaClient): 
     where: { athleteId, sessionId: null },
   })
 
-  let matched = 0
+  if (unmatched.length === 0) return 0
 
-  for (const activity of unmatched) {
+  // --- Pre-compute date metadata for every activity ---
+  type ActivityMeta = { dateStr: string; dow: number; monday: Date }
+
+  const metas: ActivityMeta[] = unmatched.map((activity) => {
     const activityDate = activity.startDateLocal.toISOString().split('T')[0]
     const dow = activity.startDateLocal.getDay() === 0 ? 7 : activity.startDateLocal.getDay()
 
-    // Candidate 1: group plan on that date
-    const groupPlans = await prisma.trainingPlan.findMany({
-      where: { date: new Date(activityDate) },
-      include: { exerciseGroups: true, sessions: { where: { athleteId } } },
-    })
-
-    // Candidate 2: individual plan day for that dow in week containing activityDate
+    // Build monday as UTC midnight so the key matches weekStart stored in DB (also UTC midnight)
     const [y, mo, da] = activityDate.split('-').map(Number)
-    const d = new Date(y, mo - 1, da)
-    const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay()
-    const mondayOffset = dayOfWeek - 1
+    const d = new Date(Date.UTC(y, mo - 1, da))
+    const dayOfWeek = d.getUTCDay() === 0 ? 7 : d.getUTCDay()
     const monday = new Date(d)
-    monday.setDate(d.getDate() - mondayOffset)
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
+    monday.setUTCDate(d.getUTCDate() - (dayOfWeek - 1))
 
-    const indPlans = await prisma.individualPlan.findMany({
-      where: {
-        athleteId,
-        weekStart: { gte: monday, lte: sunday },
-      },
-      include: { days: { where: { dayOfWeek: dow }, include: { sessions: { where: { athleteId } } } } },
-    })
+    return { dateStr: activityDate, dow, monday }
+  })
 
-    type Candidate =
-      | { type: 'group'; planId: string; exerciseGroupId: string | null; parsedData: unknown; text: string | null; session: { id: string } | null }
-      | { type: 'ind'; dayId: string; parsedData: unknown; text: string | null; session: { id: string } | null }
+  // --- 2 parallel batch reads ---
+  const uniqueDateObjects = [...new Set(metas.map((m) => m.dateStr))].map((s) => new Date(s))
+  const uniqueMondays = [...new Map(metas.map((m) => [m.monday.toISOString(), m.monday])).values()]
+
+  const [groupPlanRows, indPlanRows] = await Promise.all([
+    prisma.trainingPlan.findMany({
+      where: { date: { in: uniqueDateObjects } },
+      include: { exerciseGroups: true, sessions: { where: { athleteId } } },
+    }),
+    prisma.individualPlan.findMany({
+      where: { athleteId, weekStart: { in: uniqueMondays } },
+      include: { days: { include: { sessions: { where: { athleteId } } } } },
+    }),
+  ])
+
+  // --- Build O(1) lookup maps ---
+  const groupByDate = new Map<string, typeof groupPlanRows>()
+  for (const plan of groupPlanRows) {
+    const key = plan.date.toISOString().split('T')[0]
+    groupByDate.set(key, [...(groupByDate.get(key) ?? []), plan])
+  }
+
+  const indByMonday = new Map<string, typeof indPlanRows>()
+  for (const plan of indPlanRows) {
+    const key = plan.weekStart.toISOString()
+    indByMonday.set(key, [...(indByMonday.get(key) ?? []), plan])
+  }
+
+  // --- Match in-memory ---
+  type Candidate =
+    | { type: 'group'; planId: string; exerciseGroupId: string | null; parsedData: unknown; text: string | null; session: { id: string } | null }
+    | { type: 'ind'; dayId: string; parsedData: unknown; text: string | null; session: { id: string } | null }
+
+  type MatchResult = {
+    activity: (typeof unmatched)[number]
+    existingSessionId: string | null
+    sessionData:
+      | { type: 'group'; planId: string; exerciseGroupId: string | null; date: Date }
+      | { type: 'ind'; dayId: string; date: Date }
+      | null
+    score: number
+    rpe: number
+  }
+
+  const matchResults: MatchResult[] = []
+
+  for (let i = 0; i < unmatched.length; i++) {
+    const activity = unmatched[i]
+    const { dateStr, dow, monday } = metas[i]
 
     const candidates: Array<{ candidate: Candidate; score: number }> = []
 
-    for (const plan of groupPlans) {
+    for (const plan of groupByDate.get(dateStr) ?? []) {
       const session = plan.sessions[0] ?? null
       const text = plan.exerciseGroups.map((g) => g.rawText).join(' ')
-      let score = 50 // date match
-      score += scoreTypeMatch(activity.type, text)
       const combinedParsed = plan.exerciseGroups[0]?.parsedData ?? null
-      score += scoreDistanceMatch(activity.distance, combinedParsed)
-      candidates.push({
-        candidate: { type: 'group', planId: plan.id, exerciseGroupId: null, parsedData: combinedParsed, text, session },
-        score,
-      })
+      const score = 50 + scoreTypeMatch(activity.type, text) + scoreDistanceMatch(activity.distance, combinedParsed)
+      candidates.push({ candidate: { type: 'group', planId: plan.id, exerciseGroupId: null, parsedData: combinedParsed, text, session }, score })
     }
 
-    for (const plan of indPlans) {
+    for (const plan of indByMonday.get(monday.toISOString()) ?? []) {
       for (const day of plan.days) {
+        if (day.dayOfWeek !== dow) continue
         const session = day.sessions[0] ?? null
-        let score = 50 // date match
-        score += 5 // prefer individual
-        score += scoreTypeMatch(activity.type, day.rawText)
-        score += scoreDistanceMatch(activity.distance, day.parsedData)
-        candidates.push({
-          candidate: { type: 'ind', dayId: day.id, parsedData: day.parsedData, text: day.rawText, session },
-          score,
-        })
+        const score = 55 + scoreTypeMatch(activity.type, day.rawText) + scoreDistanceMatch(activity.distance, day.parsedData)
+        candidates.push({ candidate: { type: 'ind', dayId: day.id, parsedData: day.parsedData, text: day.rawText, session }, score })
       }
     }
 
     if (candidates.length === 0) continue
-
     candidates.sort((a, b) => b.score - a.score)
     const best = candidates[0]
     if (best.score < 50) continue
 
     const rpe = estimateRpeFromHr(activity.averageHeartrate, activity.maxHeartrate)
-    const comment = `Авто-імпорт зі Strava: ${activity.name}`
     const c = best.candidate
+    const date = new Date(dateStr)
+    const existingSessionId = c.session?.id ?? null
+    const sessionData =
+      existingSessionId !== null
+        ? null
+        : c.type === 'group'
+          ? { type: 'group' as const, planId: c.planId, exerciseGroupId: c.exerciseGroupId, date }
+          : { type: 'ind' as const, dayId: c.dayId, date }
 
-    // Ensure AthleteSession exists
-    let sessionId: string
-
-    if (c.type === 'group') {
-      if (c.session) {
-        sessionId = c.session.id
-      } else {
-        const sess = await prisma.athleteSession.create({
-          data: {
-            athleteId,
-            planId: c.planId,
-            exerciseGroupId: c.exerciseGroupId,
-            date: new Date(activityDate),
-          },
-        })
-        sessionId = sess.id
-      }
-    } else {
-      if (c.session) {
-        sessionId = c.session.id
-      } else {
-        const sess = await prisma.athleteSession.create({
-          data: {
-            athleteId,
-            individualPlanDayId: c.dayId,
-            date: new Date(activityDate),
-          },
-        })
-        sessionId = sess.id
-      }
-    }
-
-    // Auto-create feedback only if none exists
-    const existingFeedback = await prisma.sessionFeedback.findUnique({ where: { sessionId } })
-    if (!existingFeedback) {
-      await prisma.sessionFeedback.create({
-        data: { sessionId, status: 'COMPLETED', rpe, comment },
-      })
-    }
-
-    // Link activity to session
-    await prisma.stravaActivity.update({
-      where: { id: activity.id },
-      data: {
-        sessionId,
-        matchedAt: new Date(),
-        matchConfidence: best.score >= 80 ? 'HIGH' : best.score >= 65 ? 'MEDIUM' : 'LOW',
-      },
-    })
-
-    matched++
+    matchResults.push({ activity, existingSessionId, sessionData, score: best.score, rpe })
   }
 
-  return matched
+  if (matchResults.length === 0) return 0
+
+  // --- Batch write 1: create missing AthleteSession records ---
+  const needsSession = matchResults.filter((r) => r.sessionData !== null)
+  const createdSessions = await Promise.all(
+    needsSession.map((r) => {
+      const sd = r.sessionData!
+      return sd.type === 'group'
+        ? prisma.athleteSession.create({ data: { athleteId, planId: sd.planId, exerciseGroupId: sd.exerciseGroupId, date: sd.date } })
+        : prisma.athleteSession.create({ data: { athleteId, individualPlanDayId: sd.dayId, date: sd.date } })
+    }),
+  )
+
+  // Merge existing + newly created session ids into a flat array aligned with matchResults
+  let newIdx = 0
+  const resolvedIds = matchResults.map((r) =>
+    r.existingSessionId !== null ? r.existingSessionId : createdSessions[newIdx++].id,
+  )
+
+  // --- Batch write 2: find sessions that already have feedback ---
+  const existingFeedbacks = await prisma.sessionFeedback.findMany({
+    where: { sessionId: { in: resolvedIds } },
+    select: { sessionId: true },
+  })
+  const withFeedback = new Set(existingFeedbacks.map((f) => f.sessionId))
+
+  // --- Batch write 3: create missing feedbacks + update activities in parallel ---
+  await Promise.all([
+    ...matchResults
+      .map((r, i) => ({ r, i }))
+      .filter(({ i }) => !withFeedback.has(resolvedIds[i]))
+      .map(({ r, i }) =>
+        prisma.sessionFeedback.create({
+          data: { sessionId: resolvedIds[i], status: 'COMPLETED', rpe: r.rpe, comment: `Авто-імпорт зі Strava: ${r.activity.name}` },
+        }),
+      ),
+    ...matchResults.map((r, i) =>
+      prisma.stravaActivity.update({
+        where: { id: r.activity.id },
+        data: {
+          sessionId: resolvedIds[i],
+          matchedAt: new Date(),
+          matchConfidence: r.score >= 80 ? 'HIGH' : r.score >= 65 ? 'MEDIUM' : 'LOW',
+        },
+      }),
+    ),
+  ])
+
+  return matchResults.length
 }

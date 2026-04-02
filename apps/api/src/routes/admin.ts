@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcrypt'
+import { BCRYPT_ROUNDS } from '../utils/constants.js'
 
 const updateRoleSchema = z.object({
   role: z.enum(['ATHLETE', 'TRAINER', 'ADMIN']),
@@ -43,7 +44,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const user = await fastify.prisma.user.findUnique({ where: { id } })
     if (!user) return reply.status(404).send({ error: 'User not found' })
 
-    const passwordHash = await bcrypt.hash(body.password, 12)
+    const passwordHash = await bcrypt.hash(body.password, BCRYPT_ROUNDS)
     await fastify.prisma.user.update({
       where: { id },
       data: { passwordHash },

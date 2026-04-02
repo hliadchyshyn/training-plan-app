@@ -1,8 +1,10 @@
-import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import bcrypt from 'bcrypt'
 import { z } from 'zod'
 import { OAuth2Client } from 'google-auth-library'
 import type { Role } from '@training-plan/shared'
+import { signTokens, setRefreshCookie, verifyRefreshToken } from '../utils/auth-tokens.js'
+import { BCRYPT_ROUNDS, INVITE_CODE_CHARS, INVITE_CODE_LENGTH, INVITE_CODE_MAX_RETRIES } from '../utils/constants.js'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -26,22 +28,6 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8),
 })
 
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET
-if (!REFRESH_SECRET) throw new Error('JWT_REFRESH_SECRET environment variable is required')
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-
-type FastifyWithJwt = Parameters<FastifyPluginAsync>[0]
-
-function signTokens(fastify: FastifyWithJwt, sub: string, email: string, role: Role) {
-  const payload = { sub, email, role }
-  const accessToken = fastify.jwt.sign(payload, { expiresIn: '2h' })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const refreshToken = fastify.jwt.sign(payload, { secret: REFRESH_SECRET, expiresIn: '7d' } as any)
-  return { accessToken, refreshToken }
-}
-
-const IS_PROD = process.env.NODE_ENV === 'production'
-
 async function verifyGoogleToken(credential: string, clientId: string) {
   const client = new OAuth2Client(clientId)
   const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId })
@@ -51,14 +37,17 @@ async function verifyGoogleToken(credential: string, clientId: string) {
   return payload
 }
 
-function setRefreshCookie(reply: FastifyReply, token: string) {
-  reply.setCookie('refreshToken', token, {
-    httpOnly: true,
-    path: '/api/auth/refresh',
-    maxAge: COOKIE_MAX_AGE,
-    sameSite: IS_PROD ? 'none' : 'lax',
-    secure: IS_PROD,
-  })
+async function generateInviteCode(
+  findUnique: (code: string) => Promise<boolean>,
+): Promise<string> {
+  for (let attempt = 0; attempt < INVITE_CODE_MAX_RETRIES; attempt++) {
+    const code = Array.from(
+      { length: INVITE_CODE_LENGTH },
+      () => INVITE_CODE_CHARS[Math.floor(Math.random() * INVITE_CODE_CHARS.length)],
+    ).join('')
+    if (!(await findUnique(code))) return code
+  }
+  throw new Error('Failed to generate unique invite code')
 }
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -86,25 +75,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     // Generate unique invite code for trainers
     let inviteCode: string | undefined
     if (body.role === 'TRAINER') {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-        const exists = await fastify.prisma.user.findUnique({ where: { inviteCode: code } })
-        if (!exists) { inviteCode = code; break }
-      }
-      if (!inviteCode) throw new Error('Failed to generate unique invite code')
+      inviteCode = await generateInviteCode(
+        async (code) => !!(await fastify.prisma.user.findUnique({ where: { inviteCode: code } })),
+      )
     }
 
-    const passwordHash = await bcrypt.hash(body.password, 12)
+    const passwordHash = await bcrypt.hash(body.password, BCRYPT_ROUNDS)
     const user = await fastify.prisma.user.create({
-      data: {
-        email,
-        name: body.name,
-        passwordHash,
-        role: body.role,
-        inviteCode,
-        trainerId,
-      },
+      data: { email, name: body.name, passwordHash, role: body.role, inviteCode, trainerId },
       select: { id: true, email: true, name: true, role: true },
     })
 
@@ -136,8 +114,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     let payload: { sub: string; email: string; role: string }
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payload = fastify.jwt.verify(token, { secret: REFRESH_SECRET } as any) as typeof payload
+      payload = verifyRefreshToken(fastify, token)
     } catch {
       return reply.status(401).send({ error: 'Invalid refresh token' })
     }
@@ -163,7 +140,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const valid = await bcrypt.compare(body.currentPassword, user.passwordHash)
     if (!valid) return reply.status(400).send({ error: 'Невірний поточний пароль' })
 
-    const passwordHash = await bcrypt.hash(body.newPassword, 12)
+    const passwordHash = await bcrypt.hash(body.newPassword, BCRYPT_ROUNDS)
     await fastify.prisma.user.update({ where: { id: userId }, data: { passwordHash } })
     return { ok: true }
   })
@@ -198,14 +175,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     if (!user || (user.role !== 'TRAINER' && user.role !== 'ADMIN')) {
       return reply.status(403).send({ error: 'Only trainers can regenerate invite codes' })
     }
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    let code = ''
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-      const existing = await fastify.prisma.user.findUnique({ where: { inviteCode: candidate } })
-      if (!existing) { code = candidate; break }
-    }
-    if (!code) return reply.status(500).send({ error: 'Failed to generate unique invite code' })
+    const code = await generateInviteCode(
+      async (candidate) => !!(await fastify.prisma.user.findUnique({ where: { inviteCode: candidate } })),
+    )
     await fastify.prisma.user.update({ where: { id: request.user.sub }, data: { inviteCode: code } })
     return { inviteCode: code }
   })
@@ -306,12 +278,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     let newInviteCode: string | undefined
     if (role === 'TRAINER') {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-        const exists = await fastify.prisma.user.findUnique({ where: { inviteCode: code } })
-        if (!exists) { newInviteCode = code; break }
-      }
+      newInviteCode = await generateInviteCode(
+        async (code) => !!(await fastify.prisma.user.findUnique({ where: { inviteCode: code } })),
+      )
     }
 
     const user = await fastify.prisma.user.update({
@@ -319,7 +288,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       data: { role, trainerId: trainerId ?? null, inviteCode: newInviteCode ?? undefined },
     })
 
-    const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
+    const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role as Role)
     setRefreshCookie(reply, refreshToken)
     return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
   })

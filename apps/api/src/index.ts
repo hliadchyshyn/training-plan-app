@@ -15,12 +15,19 @@ import { watchWorkoutsRoutes } from './routes/watchWorkouts.js'
 import { intervalsRoutes } from './routes/intervals.js'
 import { templatesRoutes } from './routes/templates.js'
 
+// Validate required environment variables before server starts
+const IS_PROD = process.env.NODE_ENV === 'production'
+const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL'] as const
+for (const key of requiredEnvVars) {
+  if (!process.env[key]) throw new Error(`${key} environment variable is required`)
+}
+if (IS_PROD && !process.env.FRONTEND_URL) {
+  throw new Error('FRONTEND_URL environment variable is required in production')
+}
+
 const server = Fastify({ logger: true })
 
 const frontendUrl = process.env.FRONTEND_URL
-if (!frontendUrl && process.env.NODE_ENV === 'production') {
-  throw new Error('FRONTEND_URL environment variable is required in production')
-}
 await server.register(cors, {
   origin: frontendUrl ?? true,
   credentials: true,

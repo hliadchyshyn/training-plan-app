@@ -6,11 +6,11 @@ function parseDurationSeconds(str: string): number {
   // "1:30" → 90
   const colonMatch = trimmed.match(/^(\d+):(\d+)$/)
   if (colonMatch) return parseInt(colonMatch[1]) * 60 + parseInt(colonMatch[2])
-  // "90 сек"
-  const secMatch = trimmed.match(/(\d+)\s*(сек|sec|s)\b/i)
+  // "90 сек" — \b after Cyrillic doesn't work, so apply \b only to ASCII alternatives
+  const secMatch = trimmed.match(/(\d+)\s*(сек|sec\b|s\b)/i)
   if (secMatch) return parseInt(secMatch[1])
   // "3 хв", "3 хвилини", "3 min"
-  const minMatch = trimmed.match(/(\d+)\s*(хв|хвилин|min|m)\b/i)
+  const minMatch = trimmed.match(/(\d+)\s*(хв|хвилин|min\b|m\b)/i)
   if (minMatch) return parseInt(minMatch[1]) * 60
   return 0
 }
@@ -20,7 +20,7 @@ function parseDistanceMeters(str: string): number {
   const trimmed = str.trim()
   const kmMatch = trimmed.match(/([\d.]+)\s*(км|km)/i)
   if (kmMatch) return Math.round(parseFloat(kmMatch[1]) * 1000)
-  const mMatch = trimmed.match(/([\d.]+)\s*(м|m)\b/i)
+  const mMatch = trimmed.match(/([\d.]+)\s*(м|m\b)/i)
   if (mMatch) return Math.round(parseFloat(mMatch[1]))
   return 0
 }

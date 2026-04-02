@@ -10,7 +10,10 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@fastify/cookie": "^9.3.1",
@@ -32,7 +35,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "tsx": "^4.15.7"
+    "@vitest/coverage-v8": "^4.1.2",
+    "tsx": "^4.15.7",
+    "vitest": "^4.1.2"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
