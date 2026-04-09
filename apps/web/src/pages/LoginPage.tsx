@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
+import axios from 'axios'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
 import { useAuthStore } from '../store/auth.js'
 import { getErrorMessage } from '../utils/errors.js'
 import stravaMarkWhite from '../assets/strava/strava-mark-white.svg'
+
+const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 const GOOGLE_GSI_URL = 'https://accounts.google.com/gsi/client'
@@ -18,6 +21,21 @@ export function LoginPage() {
   const [error, setError] = useState(searchParams.get('error') ? 'Помилка входу через OAuth' : '')
   const [loading, setLoading] = useState(false)
   const googleBtnRef = useRef<HTMLDivElement>(null)
+
+  // Silent WP SSO auto-login: attempt /refresh on mount (uses wp_sso cookie if present)
+  useEffect(() => {
+    axios.post(`${BASE_URL}/auth/refresh`, {}, { withCredentials: true })
+      .then(({ data }) =>
+        axios.get(`${BASE_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${data.accessToken}` },
+          withCredentials: true,
+        }).then(({ data: user }) => {
+          setAuth(data.accessToken, user)
+          navigate('/')
+        }),
+      )
+      .catch(() => { /* no session — stay on login page */ })
+  }, [])
 
   // Initialize Google Identity Services
   useEffect(() => {

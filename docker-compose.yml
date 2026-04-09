@@ -41,6 +41,7 @@ services:
       STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI:-http://localhost:3001/api/strava/callback}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       STRAVA_LOGIN_REDIRECT_URI: ${STRAVA_LOGIN_REDIRECT_URI:-http://localhost:3001/api/strava/login-callback}
+      WP_SSO_SECRET: ${WP_SSO_SECRET:-dev-wp-secret}
     ports:
       - "3001:3001"
 
