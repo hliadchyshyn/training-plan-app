@@ -70,6 +70,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Невірний код тренера' })
       }
       trainerId = trainer.id
+    } else if (body.role === 'ATHLETE' && process.env.DEFAULT_TRAINER_ID) {
+      trainerId = process.env.DEFAULT_TRAINER_ID
     }
 
     // Generate unique invite code for trainers
@@ -137,11 +139,17 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed) return reply.status(401).send({ error: 'Invalid WP SSO token' })
 
       const email = parsed.email.toLowerCase()
+      const defaultTrainerId = process.env.DEFAULT_TRAINER_ID
       const user = await fastify.prisma.user.upsert({
-          where: { email },
-          create: { email, name: parsed.name },
-          update: {},
-      });
+        where: { email },
+        create: {
+          email,
+          name: parsed.name,
+          role: 'ATHLETE',
+          ...(defaultTrainerId ? { trainerId: defaultTrainerId } : {}),
+        },
+        update: {},
+      })
 
       const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
       setRefreshCookie(reply, refreshToken)
