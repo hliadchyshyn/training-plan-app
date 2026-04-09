@@ -137,14 +137,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed) return reply.status(401).send({ error: 'Invalid WP SSO token' })
 
       const email = parsed.email.toLowerCase()
-      let user = await fastify.prisma.user.findFirst({
-        where: { email: { equals: email, mode: 'insensitive' } },
-      })
-      if (!user) {
-        user = await fastify.prisma.user.create({
-          data: { email, name: parsed.name },
-        })
-      }
+      const user = await fastify.prisma.user.upsert({
+          where: { email },
+          create: { email, name: parsed.name },
+          update: {},
+      });
 
       const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
       setRefreshCookie(reply, refreshToken)

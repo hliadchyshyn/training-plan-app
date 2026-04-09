@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       accessToken: null,
       user: null,
-      _hasHydrated: false,
+      _hasHydrated: true,
       setAuth: (token, user) => set({ accessToken: token, user }),
       setAccessToken: (token) => set({ accessToken: token }),
       logout: () => set({ accessToken: null, user: null }),
@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth',
       partialize: (state) => ({ user: state.user, accessToken: state.accessToken }),
       onRehydrateStorage: () => () => {
-        useAuthStore.setState({ _hasHydrated: true })
+        // localStorage is synchronous — _hasHydrated starts true, no-op needed
       },
     },
   ),
