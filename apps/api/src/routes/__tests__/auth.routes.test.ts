@@ -92,7 +92,7 @@ async function buildApp(prismaOverrides: Record<string, unknown> = {}): Promise<
 }
 
 /** Generate a valid signed JWT for test requests */
-function makeBearer(app: FastifyInstance, payload = { sub: 'user-1', email: 'test@example.com', role: 'ATHLETE' }) {
+function makeBearer(app: FastifyInstance, payload = { sub: 'user-1', email: 'test@example.com', role: 'ATHLETE' as const }) {
   return `Bearer ${app.jwt.sign(payload, { expiresIn: '2h' })}`
 }
 
