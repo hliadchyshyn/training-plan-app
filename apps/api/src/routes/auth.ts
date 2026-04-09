@@ -150,7 +150,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       setRefreshCookie(reply, refreshToken)
       reply.clearCookie('wp_sso', {
         path: '/',
-        domain: IS_PROD ? '.tsclub.ua' : undefined,
+        domain: IS_PROD ? '.tsclub.com.ua' : undefined,
         secure: IS_PROD,
         sameSite: 'lax',
       })
