@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'crypto'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Role } from '@training-plan/shared'
 
@@ -32,6 +33,22 @@ export function setRefreshCookie(reply: FastifyReply, token: string) {
     sameSite: IS_PROD ? 'none' : 'lax',
     secure: IS_PROD,
   })
+}
+
+export function verifyWpSsoCookie(token: string, secret: string): { email: string; name: string } | null {
+  const parts = token.split(':')
+  if (parts.length !== 4) return null
+  const [email, nameB64, timestamp, hmac] = parts
+  const age = Date.now() / 1000 - Number(timestamp)
+  if (Number.isNaN(age) || age > 300 || age < 0) return null
+  const expected = createHmac('sha256', secret).update(`${email}:${nameB64}:${timestamp}`).digest('hex')
+  try {
+    if (!timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expected, 'hex'))) return null
+  } catch {
+    return null
+  }
+  const name = Buffer.from(nameB64, 'base64').toString('utf8')
+  return { email, name }
 }
 
 export function verifyRefreshToken(

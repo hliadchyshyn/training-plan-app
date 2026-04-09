@@ -4,6 +4,7 @@ dist/
 .env.local
 *.env
 .superpowers/
+docs/
 
 # Prisma
 apps/api/prisma/migrations/*.sql
