@@ -126,18 +126,25 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const indPage = Math.max(parseInt(q.indPage ?? '1', 10), 1)
 
       const today = new Date(); today.setHours(0, 0, 0, 0)
+      const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 6)
 
       let dateFilter: Record<string, Date> = {}
+      let indDateFilter: Record<string, Date> = {}
+
       if (q.month) {
         const [y, m] = q.month.split('-').map(Number)
         dateFilter = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) }
+        indDateFilter = dateFilter
       } else if (q.tab === 'past') {
         dateFilter = { lt: today }
+        indDateFilter = { lt: weekAgo }
       } else if (!q.date) {
         dateFilter = { gte: today }
+        indDateFilter = { gte: weekAgo }
       }
 
       const hasDateFilter = Object.keys(dateFilter).length > 0
+      const hasIndDateFilter = Object.keys(indDateFilter).length > 0
 
       const groupWhere = {
         trainerId,
@@ -146,7 +153,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
 
       const indWhere = {
         trainerId,
-        ...(hasDateFilter ? { weekStart: dateFilter } : {}),
+        ...(hasIndDateFilter ? { weekStart: indDateFilter } : {}),
         ...(q.athleteId ? { athleteId: q.athleteId } : {}),
       }
 

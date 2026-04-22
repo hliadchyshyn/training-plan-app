@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -119,6 +120,16 @@ function SortableStepRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step._id })
   const set = (patch: Partial<DraftStep>) => onChange(index, { ...step, ...patch })
 
+  const [paceFromText, setPaceFromText] = useState(() => secToPace(step.targetFrom))
+  const [paceToText, setPaceToText] = useState(() => secToPace(step.targetTo))
+
+  useEffect(() => {
+    if (step.targetUnit !== 'PACE') {
+      setPaceFromText(secToPace(step.targetFrom))
+      setPaceToText(secToPace(step.targetTo))
+    }
+  }, [step.targetUnit, step.targetFrom, step.targetTo])
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -137,8 +148,9 @@ function SortableStepRow({
               type="number"
               min={2}
               max={50}
-              value={step.repeatCount ?? 4}
-              onChange={(e) => set({ repeatCount: parseInt(e.target.value) || 2 })}
+              value={step.repeatCount ?? ''}
+              onChange={(e) => set({ repeatCount: e.target.value === '' ? undefined : parseInt(e.target.value) || undefined })}
+              placeholder="4"
               style={{ width: 60, textAlign: 'center' }}
             />
             <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>разів</span>
@@ -221,10 +233,12 @@ function SortableStepRow({
                 <label style={{ fontSize: '0.75rem' }}>Від (хв/км)</label>
                 <input
                   type="text"
-                  value={secToPace(step.targetFrom)}
-                  onChange={(e) => {
+                  value={paceFromText}
+                  onChange={(e) => setPaceFromText(e.target.value)}
+                  onBlur={(e) => {
                     const sec = paceToSec(e.target.value)
                     set({ targetFrom: sec || undefined })
+                    setPaceFromText(sec ? secToPace(sec) : e.target.value)
                   }}
                   placeholder="4:00"
                   maxLength={5}
@@ -234,10 +248,12 @@ function SortableStepRow({
                 <label style={{ fontSize: '0.75rem' }}>До (хв/км)</label>
                 <input
                   type="text"
-                  value={secToPace(step.targetTo)}
-                  onChange={(e) => {
+                  value={paceToText}
+                  onChange={(e) => setPaceToText(e.target.value)}
+                  onBlur={(e) => {
                     const sec = paceToSec(e.target.value)
                     set({ targetTo: sec || undefined })
+                    setPaceToText(sec ? secToPace(sec) : e.target.value)
                   }}
                   placeholder="4:30"
                   maxLength={5}

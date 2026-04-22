@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
+import { useAuthStore } from '../store/auth.js'
 import { calcVolumeKm } from '../utils/volume.js'
 import { formatDate, formatWeekRange, toLocalDateStr } from '../utils/date.js'
 import { DAY_NAMES, STATUS_LABELS } from '../utils/constants.js'
@@ -12,6 +13,7 @@ interface GroupPlan {
   id: string
   date: string
   title: string | null
+  trainerId: string
   exerciseGroups: ExerciseGroup[]
   sessions: Session[]
 }
@@ -51,6 +53,7 @@ function getWeekDates(weekStart: string): string[] {
 }
 
 export function WeeklyCalendarPage() {
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [currentDate, setCurrentDate] = useState(() => {
@@ -243,7 +246,9 @@ export function WeeklyCalendarPage() {
                       <div style={{ background: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '0.5rem 0.75rem', border: '1px solid var(--color-border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
                           <div>
-                            <span style={{ fontSize: '0.6875rem', color: '#1e40af', fontWeight: 600, marginRight: '0.5rem' }}>ГРУПОВЕ</span>
+                            <span style={{ fontSize: '0.6875rem', color: plan.trainerId === currentUserId ? '#6d28d9' : '#1e40af', fontWeight: 600, marginRight: '0.5rem' }}>
+                              {plan.trainerId === currentUserId ? 'ОСОБИСТЕ' : 'ГРУПОВЕ'}
+                            </span>
                             <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{plan.title ?? 'Тренування'}</span>
                           </div>
                           <SessionStatus session={plan.sessions[0]} startColor="var(--color-primary)" />

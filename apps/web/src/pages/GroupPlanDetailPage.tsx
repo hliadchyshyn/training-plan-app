@@ -24,6 +24,7 @@ export function GroupPlanDetailPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [isEditingFeedback, setIsEditingFeedback] = useState(false)
 
   const { data: plan, isLoading } = useQuery<Plan>({
     queryKey: ['plan', id],
@@ -48,6 +49,7 @@ export function GroupPlanDetailPage() {
       qc.invalidateQueries({ queryKey: ['plan', id] })
       qc.invalidateQueries({ queryKey: ['week'] })
       setSelectedGroupId(null)
+      setIsEditingFeedback(false)
     },
   })
 
@@ -77,9 +79,18 @@ export function GroupPlanDetailPage() {
         </div>
       )}
 
-      {mySession?.feedback && (
+      {mySession?.feedback && !isEditingFeedback && (
         <div className="card card-success" style={{ marginBottom: '1.5rem' }}>
-          <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Відгук збережено</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Відгук збережено</p>
+            <button
+              className="btn-secondary"
+              style={{ fontSize: '0.75rem', padding: '2px 8px', flexShrink: 0 }}
+              onClick={() => setIsEditingFeedback(true)}
+            >
+              Редагувати
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <span className={`badge badge-${mySession.feedback.status.toLowerCase()}`}>
               {STATUS_LABELS[mySession.feedback.status]}
@@ -96,6 +107,19 @@ export function GroupPlanDetailPage() {
               <StravaActivityChip activity={{ ...stravaActivity, stravaId: stravaActivity.stravaId.toString() }} />
             </div>
           )}
+        </div>
+      )}
+
+      {mySession?.feedback && isEditingFeedback && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <p style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Редагування відгуку</p>
+          <FeedbackForm
+            namePrefix="status-edit"
+            isPending={submitFeedback.isPending}
+            initialValues={mySession.feedback}
+            onSubmit={(values) => submitFeedback.mutate({ exerciseGroupId: mySession.exerciseGroupId ?? '', ...values })}
+            onCancel={() => setIsEditingFeedback(false)}
+          />
         </div>
       )}
 

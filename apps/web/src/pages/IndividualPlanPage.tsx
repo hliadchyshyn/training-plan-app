@@ -118,23 +118,25 @@ export function IndividualPlanPage() {
               className="card"
               style={{
                 display: 'flex', flexDirection: 'column', gap: '0.75rem',
-                cursor: session?.feedback ? 'default' : 'pointer',
+                cursor: isActive ? 'default' : 'pointer',
                 border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
               }}
               onClick={() => {
-                if (!session?.feedback && !isActive) setActiveDayId(day.id)
+                if (!isActive) setActiveDayId(day.id)
               }}
             >
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                 <strong style={{ width: 30, flexShrink: 0 }}>{name}</strong>
                 <div style={{ flex: 1, whiteSpace: 'pre-line', fontSize: '0.875rem' }}>{day.rawText}</div>
-                {session?.feedback && (
+                {session?.feedback && !isActive && (
                   <span className={`badge badge-${session.feedback.status.toLowerCase()}`} style={{ flexShrink: 0 }}>
                     {STATUS_LABELS[session.feedback.status]}
                   </span>
                 )}
-                {!session?.feedback && !isActive && (
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', flexShrink: 0 }}>Залишити відгук →</span>
+                {!isActive && (
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', flexShrink: 0 }}>
+                    {session?.feedback ? 'Редагувати →' : 'Залишити відгук →'}
+                  </span>
                 )}
               </div>
               <div style={{ paddingLeft: 46 }} onClick={(e) => e.stopPropagation()}>
@@ -148,7 +150,7 @@ export function IndividualPlanPage() {
                 </button>
               </div>
 
-              {session?.feedback && (
+              {session?.feedback && !isActive && (
                 <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', paddingLeft: 46 }}>
                   RPE: {session.feedback.rpe}{session.feedback.comment && ` · ${session.feedback.comment}`}
                   {session.stravaActivity && (
@@ -167,6 +169,7 @@ export function IndividualPlanPage() {
                   <FeedbackForm
                     namePrefix={`status-${day.id}`}
                     isPending={submitFeedback.isPending}
+                    initialValues={session?.feedback ?? undefined}
                     onSubmit={(values) =>
                       api.post('/my/sessions/with-feedback', {
                         individualPlanDayId: day.id,

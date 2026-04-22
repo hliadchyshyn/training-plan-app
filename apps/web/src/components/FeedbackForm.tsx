@@ -5,14 +5,15 @@ import { STATUS_LABELS } from '../utils/constants.js'
 interface Props {
   namePrefix?: string
   isPending: boolean
+  initialValues?: { status: FeedbackStatus; rpe: number; comment: string | null }
   onSubmit: (values: { status: FeedbackStatus; rpe: number; comment: string }) => void
   onCancel: () => void
 }
 
-export function FeedbackForm({ namePrefix = 'status', isPending, onSubmit, onCancel }: Props) {
-  const [status, setStatus] = useState<FeedbackStatus | undefined>()
-  const [rpe, setRpe] = useState(5)
-  const [comment, setComment] = useState('')
+export function FeedbackForm({ namePrefix = 'status', isPending, initialValues, onSubmit, onCancel }: Props) {
+  const [status, setStatus] = useState<FeedbackStatus | undefined>(initialValues?.status)
+  const [rpe, setRpe] = useState(initialValues?.rpe ?? 5)
+  const [comment, setComment] = useState(initialValues?.comment ?? '')
 
   return (
     <>
@@ -51,7 +52,7 @@ export function FeedbackForm({ namePrefix = 'status', isPending, onSubmit, onCan
           disabled={!status || isPending}
           onClick={() => status && onSubmit({ status, rpe, comment })}
         >
-          {isPending ? 'Збереження...' : 'Зберегти відгук'}
+          {isPending ? 'Збереження...' : initialValues ? 'Оновити відгук' : 'Зберегти відгук'}
         </button>
         <button className="btn-secondary" onClick={onCancel}>Скасувати</button>
       </div>
