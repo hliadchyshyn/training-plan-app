@@ -158,8 +158,16 @@ export async function matchActivities(athleteId: string, prisma: PrismaClient): 
     needsSession.map((r) => {
       const sd = r.sessionData!
       return sd.type === 'group'
-        ? prisma.athleteSession.create({ data: { athleteId, planId: sd.planId, exerciseGroupId: sd.exerciseGroupId, date: sd.date } })
-        : prisma.athleteSession.create({ data: { athleteId, individualPlanDayId: sd.dayId, date: sd.date } })
+        ? prisma.athleteSession.upsert({
+            where: { athleteId_planId_date: { athleteId, planId: sd.planId!, date: sd.date } },
+            create: { athleteId, planId: sd.planId, exerciseGroupId: sd.exerciseGroupId, date: sd.date },
+            update: {},
+          })
+        : prisma.athleteSession.upsert({
+            where: { athleteId_individualPlanDayId: { athleteId, individualPlanDayId: sd.dayId! } },
+            create: { athleteId, individualPlanDayId: sd.dayId, date: sd.date },
+            update: {},
+          })
     }),
   )
 

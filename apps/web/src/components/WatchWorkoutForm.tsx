@@ -146,7 +146,7 @@ function SortableStepRow({
             <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>↩ Повтор</span>
             <input
               type="number"
-              min={2}
+              min={1}
               max={50}
               value={step.repeatCount ?? ''}
               onChange={(e) => set({ repeatCount: e.target.value === '' ? undefined : parseInt(e.target.value) || undefined })}
