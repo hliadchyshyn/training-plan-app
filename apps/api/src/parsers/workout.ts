@@ -19,14 +19,17 @@ export function parseWorkout(text: string): ParsedWorkout | null {
 
 function parseBlocks(text: string): WorkoutBlock[] {
   const blocks: WorkoutBlock[] = []
+  const matchedRanges: Array<[number, number]> = []
 
-  // Match patterns like "4*800м", "2*600м", "4x400m"
-  const intervalPattern = /(\d+)[*x×](\d+(?:\.\d+)?)\s*(м|км|m|km)/gi
+  // Match patterns like "4*800м", "2*600м", "4x400m", "4–6 × 100m"
+  // Supports optional range in sets (e.g. "4–6"), spaces around multiplier
+  const intervalPattern = /(\d+(?:[–\-]\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)\s*(м|км|m|km)/gi
   let match: RegExpExecArray | null
 
   while ((match = intervalPattern.exec(text)) !== null) {
+    matchedRanges.push([match.index, match.index + match[0].length])
     const block: WorkoutBlock = {
-      sets: parseInt(match[1]),
+      sets: parseInt(match[1]), // parseInt("4–6") = 4 (lower bound)
       distance: `${match[2]}${match[3]}`,
     }
 
@@ -56,6 +59,16 @@ function parseBlocks(text: string): WorkoutBlock[] {
   const intensityMatch = text.match(/(\d+(?:-\d+)?)\s*%/)
   if (intensityMatch && blocks.length > 0) {
     blocks[blocks.length - 1].intensity = `${intensityMatch[1]}%`
+  }
+
+  // Match plain km distance blocks not already captured by interval pattern
+  // e.g. "5–8 km легко", "10km easy"
+  const plainKmPattern = /([\d.]+(?:[–\-][\d.]+)?)\s*(км|km)/gi
+  while ((match = plainKmPattern.exec(text)) !== null) {
+    const alreadyMatched = matchedRanges.some(([s, e]) => match!.index >= s && match!.index < e)
+    if (!alreadyMatched) {
+      blocks.push({ distance: `${parseFloat(match[1])}km` })
+    }
   }
 
   // Match duration runs without sets*distance pattern (e.g. "25 хв бігу", "10 хв розминочний біг")

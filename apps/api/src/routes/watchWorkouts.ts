@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { WatchWorkoutStep, WatchSport } from '@training-plan/shared'
 import { parsedDataToSteps } from '../utils/planToWatch.js'
 import { stepsToFit } from '../utils/watchExport.js'
+import { parseWorkout } from '../parsers/workout.js'
 
 const watchStepSchema = z.object({
   type: z.enum(['WARMUP', 'ACTIVE', 'RECOVERY', 'COOLDOWN', 'REST', 'REPEAT_BEGIN', 'REPEAT_END']),
@@ -80,12 +81,12 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
       if (sourceType === 'GROUP_PLAN') {
         const group = await fastify.prisma.exerciseGroup.findUnique({ where: { id: sourceId } })
         if (!group) return reply.code(404).send({ error: 'ExerciseGroup not found' })
-        parsedData = group.parsedData
+        parsedData = group.parsedData ?? parseWorkout(group.rawText)
         defaultName = name ?? group.name
       } else {
         const day = await fastify.prisma.individualPlanDay.findUnique({ where: { id: sourceId } })
         if (!day) return reply.code(404).send({ error: 'IndividualPlanDay not found' })
-        parsedData = day.parsedData
+        parsedData = day.parsedData ?? (day.rawText ? parseWorkout(day.rawText) : null)
       }
 
       const steps = parsedDataToSteps(parsedData)
