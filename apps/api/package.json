@@ -11,6 +11,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "db:fix:olga-trainer-role": "tsx prisma/fix-olga-trainer-role.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const googleBtnRef = useRef<HTMLDivElement>(null)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const [trainerCode, setTrainerCode] = useState('')
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' })
   const [pwError, setPwError] = useState('')
   const [pwSuccess, setPwSuccess] = useState(false)
@@ -48,6 +49,16 @@ export default function ProfilePage() {
   const regenCode = useMutation({
     mutationFn: () => api.post('/auth/invite-code/regenerate'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['me'] }),
+    onError: flashErr,
+  })
+
+  const updateTrainer = useMutation({
+    mutationFn: (inviteCode: string) => api.put('/auth/trainer', { inviteCode }),
+    onSuccess: async () => {
+      setTrainerCode('')
+      await queryClient.invalidateQueries({ queryKey: ['me'] })
+      flash('Тренера оновлено')
+    },
     onError: flashErr,
   })
 
@@ -124,6 +135,23 @@ export default function ProfilePage() {
     navigate('/login')
   }
 
+  const handleTrainerChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const inviteCode = trainerCode.trim().toUpperCase()
+    if (!inviteCode) {
+      setErr('Введіть код тренера')
+      setMsg('')
+      return
+    }
+    if (!/^[A-Z2-9]{6}$/.test(inviteCode)) {
+      setErr('Код тренера має містити 6 символів')
+      setMsg('')
+      return
+    }
+    setErr('')
+    await updateTrainer.mutateAsync(inviteCode)
+  }
+
   if (isLoading) return <p className="page-loading">Завантаження...</p>
   if (!me) return null
 
@@ -177,11 +205,29 @@ export default function ProfilePage() {
       )}
 
       {/* Athlete trainer info */}
-      {me.role === 'ATHLETE' && me.trainerName && (
+      {me.role === 'ATHLETE' && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <p style={{ margin: 0, fontSize: 14 }}>
-            Тренер: <strong>{me.trainerName}</strong>
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>Тренер</h3>
+          <p style={{ margin: '0 0 12px', fontSize: 14 }}>
+            Поточний тренер: <strong>{me.trainerName ?? 'не прив’язано'}</strong>
           </p>
+          <form onSubmit={handleTrainerChange}>
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label htmlFor="trainer-code">Код тренера</label>
+              <input
+                id="trainer-code"
+                type="text"
+                value={trainerCode}
+                onChange={(e) => setTrainerCode(e.target.value.toUpperCase())}
+                placeholder="Наприклад, TEST01"
+                autoCapitalize="characters"
+                maxLength={6}
+              />
+            </div>
+            <button className="btn-secondary" type="submit" disabled={updateTrainer.isPending}>
+              {updateTrainer.isPending ? 'Оновлення...' : 'Змінити тренера'}
+            </button>
+          </form>
         </div>
       )}
 

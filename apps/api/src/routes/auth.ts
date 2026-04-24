@@ -1,10 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import bcrypt from 'bcrypt'
 import { z } from 'zod'
 import { OAuth2Client } from 'google-auth-library'
 import type { Role } from '@training-plan/shared'
 import { signTokens, setRefreshCookie, verifyRefreshToken, verifyWpSsoCookie, IS_PROD } from '../utils/auth-tokens.js'
-import { BCRYPT_ROUNDS, INVITE_CODE_CHARS, INVITE_CODE_LENGTH, INVITE_CODE_MAX_RETRIES } from '../utils/constants.js'
+import { BCRYPT_ROUNDS } from '../utils/constants.js'
+import { generateUniqueInviteCode } from '../utils/invite-codes.js'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -28,6 +29,10 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8),
 })
 
+const updateTrainerSchema = z.object({
+  inviteCode: z.string().trim().length(6).regex(/^[A-Z2-9]{6}$/),
+})
+
 async function verifyGoogleToken(credential: string, clientId: string) {
   const client = new OAuth2Client(clientId)
   const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId })
@@ -37,17 +42,17 @@ async function verifyGoogleToken(credential: string, clientId: string) {
   return payload
 }
 
-async function generateInviteCode(
-  findUnique: (code: string) => Promise<boolean>,
-): Promise<string> {
-  for (let attempt = 0; attempt < INVITE_CODE_MAX_RETRIES; attempt++) {
-    const code = Array.from(
-      { length: INVITE_CODE_LENGTH },
-      () => INVITE_CODE_CHARS[Math.floor(Math.random() * INVITE_CODE_CHARS.length)],
-    ).join('')
-    if (!(await findUnique(code))) return code
+async function resolveTrainerIdByInviteCode(
+  fastify: FastifyInstance,
+  inviteCode: string,
+): Promise<string | undefined> {
+  const trainer = await fastify.prisma.user.findUnique({
+    where: { inviteCode: inviteCode.toUpperCase() },
+  })
+  if (!trainer || trainer.role !== 'TRAINER') {
+    return undefined
   }
-  throw new Error('Failed to generate unique invite code')
+  return trainer.id
 }
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -63,13 +68,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     // Resolve trainer by invite code (athletes only)
     let trainerId: string | undefined
     if (body.role === 'ATHLETE' && body.inviteCode) {
-      const trainer = await fastify.prisma.user.findUnique({
-        where: { inviteCode: body.inviteCode.toUpperCase() },
-      })
-      if (!trainer || trainer.role !== 'TRAINER') {
+      trainerId = await resolveTrainerIdByInviteCode(fastify, body.inviteCode)
+      if (!trainerId) {
         return reply.status(400).send({ error: 'Невірний код тренера' })
       }
-      trainerId = trainer.id
     } else if (body.role === 'ATHLETE' && process.env.DEFAULT_TRAINER_ID) {
       trainerId = process.env.DEFAULT_TRAINER_ID
     }
@@ -77,9 +79,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     // Generate unique invite code for trainers
     let inviteCode: string | undefined
     if (body.role === 'TRAINER') {
-      inviteCode = await generateInviteCode(
-        async (code) => !!(await fastify.prisma.user.findUnique({ where: { inviteCode: code } })),
-      )
+      inviteCode = await generateUniqueInviteCode(fastify)
     }
 
     const passwordHash = await bcrypt.hash(body.password, BCRYPT_ROUNDS)
@@ -205,15 +205,43 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   })
 
+  fastify.put('/trainer', { preHandler: fastify.authenticate }, async (request, reply) => {
+    const userId = request.user.sub
+    const body = updateTrainerSchema.parse(request.body)
+
+    const user = await fastify.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+    if (!user) return reply.status(404).send({ error: 'User not found' })
+    if (user.role !== 'ATHLETE') {
+      return reply.status(403).send({ error: 'Лише спортсмен може змінювати тренера' })
+    }
+
+    const trainerId = await resolveTrainerIdByInviteCode(fastify, body.inviteCode)
+    if (!trainerId) {
+      return reply.status(400).send({ error: 'Невірний код тренера' })
+    }
+
+    const updatedUser = await fastify.prisma.user.update({
+      where: { id: userId },
+      data: { trainerId },
+      select: { trainer: { select: { id: true, name: true } } },
+    })
+
+    return {
+      ok: true,
+      trainerName: updatedUser.trainer?.name ?? null,
+    }
+  })
+
   // POST /api/auth/invite-code/regenerate — generate a new invite code for trainer
   fastify.post('/invite-code/regenerate', { preHandler: fastify.authenticate }, async (request, reply) => {
     const user = await fastify.prisma.user.findUnique({ where: { id: request.user.sub } })
     if (!user || (user.role !== 'TRAINER' && user.role !== 'ADMIN')) {
       return reply.status(403).send({ error: 'Only trainers can regenerate invite codes' })
     }
-    const code = await generateInviteCode(
-      async (candidate) => !!(await fastify.prisma.user.findUnique({ where: { inviteCode: candidate } })),
-    )
+    const code = await generateUniqueInviteCode(fastify)
     await fastify.prisma.user.update({ where: { id: request.user.sub }, data: { inviteCode: code } })
     return { inviteCode: code }
   })
@@ -337,18 +365,15 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     let trainerId: string | undefined
     if (role === 'ATHLETE' && inviteCode) {
-      const trainer = await fastify.prisma.user.findUnique({ where: { inviteCode: inviteCode.toUpperCase() } })
-      if (!trainer || trainer.role !== 'TRAINER') {
+      trainerId = await resolveTrainerIdByInviteCode(fastify, inviteCode)
+      if (!trainerId) {
         return reply.status(400).send({ error: 'Невірний код тренера' })
       }
-      trainerId = trainer.id
     }
 
     let newInviteCode: string | undefined
     if (role === 'TRAINER') {
-      newInviteCode = await generateInviteCode(
-        async (code) => !!(await fastify.prisma.user.findUnique({ where: { inviteCode: code } })),
-      )
+      newInviteCode = await generateUniqueInviteCode(fastify)
     }
 
     const user = await fastify.prisma.user.update({
