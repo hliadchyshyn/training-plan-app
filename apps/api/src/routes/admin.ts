@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcrypt'
 import { BCRYPT_ROUNDS } from '../utils/constants.js'
+import { generateUniqueInviteCode } from '../utils/invite-codes.js'
 
 const updateRoleSchema = z.object({
   role: z.enum(['ATHLETE', 'TRAINER', 'ADMIN']),
@@ -28,10 +29,25 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const user = await fastify.prisma.user.findUnique({ where: { id } })
     if (!user) return reply.status(404).send({ error: 'User not found' })
 
+    let inviteCodeUpdate: string | null | undefined
+    let trainerIdUpdate: string | null | undefined
+
+    if (body.role === 'TRAINER' && !user.inviteCode) {
+      inviteCodeUpdate = await generateUniqueInviteCode(fastify)
+    }
+
+    if (body.role === 'TRAINER' && user.trainerId) {
+      trainerIdUpdate = null
+    }
+
     const updated = await fastify.prisma.user.update({
       where: { id },
-      data: { role: body.role },
-      select: { id: true, email: true, name: true, role: true },
+      data: {
+        role: body.role,
+        ...(inviteCodeUpdate !== undefined ? { inviteCode: inviteCodeUpdate } : {}),
+        ...(trainerIdUpdate !== undefined ? { trainerId: trainerIdUpdate } : {}),
+      },
+      select: { id: true, email: true, name: true, role: true, inviteCode: true },
     })
 
     return updated

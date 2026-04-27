@@ -92,7 +92,14 @@ async function buildApp(prismaOverrides: Record<string, unknown> = {}): Promise<
 }
 
 /** Generate a valid signed JWT for test requests */
-function makeBearer(app: FastifyInstance, payload = { sub: 'user-1', email: 'test@example.com', role: 'ATHLETE' as const }) {
+function makeBearer(
+  app: FastifyInstance,
+  payload: { sub: string; email: string; role: 'ATHLETE' | 'TRAINER' | 'ADMIN' } = {
+    sub: 'user-1',
+    email: 'test@example.com',
+    role: 'ATHLETE',
+  },
+) {
   return `Bearer ${app.jwt.sign(payload, { expiresIn: '2h' })}`
 }
 
@@ -444,6 +451,97 @@ describe('GET /api/auth/me', () => {
     expect(body).toHaveProperty('hasPassword')
     expect(body).toHaveProperty('googleLinked')
     expect(body).toHaveProperty('stravaLinked')
+    await app.close()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PUT /api/auth/trainer
+// ---------------------------------------------------------------------------
+
+describe('PUT /api/auth/trainer', () => {
+  it('returns 401 without auth token', async () => {
+    const app = await buildApp()
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/auth/trainer',
+      payload: { inviteCode: 'TEST01' },
+    })
+
+    expect(res.statusCode).toBe(401)
+    await app.close()
+  })
+
+  it('updates athlete trainer by invite code', async () => {
+    const findUnique = vi.fn()
+      .mockResolvedValueOnce(makeUser({ role: 'ATHLETE' }))
+      .mockResolvedValueOnce(makeUser({ id: 'trainer-1', role: 'TRAINER', inviteCode: 'TEST01', name: 'Coach' }))
+
+    const update = vi.fn().mockResolvedValue({
+      trainer: { id: 'trainer-1', name: 'Coach' },
+    })
+
+    const app = await buildApp({
+      user: { findFirst: vi.fn(), findUnique, create: vi.fn(), update },
+    })
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/auth/trainer',
+      headers: { authorization: makeBearer(app) },
+      payload: { inviteCode: 'TEST01' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { trainerId: 'trainer-1' },
+      select: { trainer: { select: { id: true, name: true } } },
+    })
+    expect(res.json()).toEqual({ ok: true, trainerName: 'Coach' })
+    await app.close()
+  })
+
+  it('returns 400 for invalid trainer code', async () => {
+    const findUnique = vi.fn()
+      .mockResolvedValueOnce(makeUser({ role: 'ATHLETE' }))
+      .mockResolvedValueOnce(null)
+
+    const app = await buildApp({
+      user: { findFirst: vi.fn(), findUnique, create: vi.fn(), update: vi.fn() },
+    })
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/auth/trainer',
+      headers: { authorization: makeBearer(app) },
+      payload: { inviteCode: 'BADCOD' },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('тренера')
+    await app.close()
+  })
+
+  it('returns 403 when non-athlete tries to update trainer', async () => {
+    const app = await buildApp({
+      user: {
+        findFirst: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue(makeUser({ role: 'TRAINER' })),
+        create: vi.fn(),
+        update: vi.fn(),
+      },
+    })
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/auth/trainer',
+      headers: { authorization: makeBearer(app, { sub: 'user-1', email: 'trainer@example.com', role: 'TRAINER' }) },
+      payload: { inviteCode: 'TEST01' },
+    })
+
+    expect(res.statusCode).toBe(403)
     await app.close()
   })
 })

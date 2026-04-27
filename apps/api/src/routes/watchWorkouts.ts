@@ -96,7 +96,7 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
           group.plan.trainerId === userId ||
           (group.plan.type === 'GROUP' && group.plan.trainerId === athlete?.trainerId && athlete?.isActive)
         if (!canUseGroup) return reply.code(403).send({ error: 'Forbidden' })
-        parsedData = group.parsedData
+        parsedData = group.parsedData ?? parseWorkout(group.rawText)
         defaultName = name ?? group.name
       } else {
         const day = await fastify.prisma.individualPlanDay.findUnique({
@@ -106,7 +106,7 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
         if (!day) return reply.code(404).send({ error: 'IndividualPlanDay not found' })
         const canUseDay = role === 'ADMIN' || day.plan.trainerId === userId || day.plan.athleteId === userId
         if (!canUseDay) return reply.code(403).send({ error: 'Forbidden' })
-        parsedData = day.parsedData
+        parsedData = day.parsedData ?? (day.rawText ? parseWorkout(day.rawText) : null)
       }
 
       const steps = parsedDataToSteps(parsedData)
