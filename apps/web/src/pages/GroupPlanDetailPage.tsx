@@ -25,6 +25,7 @@ export function GroupPlanDetailPage() {
   const qc = useQueryClient()
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [isEditingFeedback, setIsEditingFeedback] = useState(false)
+  const [watchError, setWatchError] = useState<{ sourceId: string; message: string } | null>(null)
 
   const { data: plan, isLoading } = useQuery<Plan>({
     queryKey: ['plan', id],
@@ -35,6 +36,16 @@ export function GroupPlanDetailPage() {
     mutationFn: (body: { sourceId: string; name: string }) =>
       api.post('/watch-workouts/from-plan', { sourceType: 'GROUP_PLAN', ...body }).then((r) => r.data),
     onSuccess: (data) => navigate(`/watch-workouts/${data.id}`),
+    onError: (err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      const sourceId = convertToWatch.variables?.sourceId ?? ''
+      setWatchError({
+        sourceId,
+        message: status === 422
+          ? 'Не вдалося зробити тренування для годинника: у цьому описі немає кроків, які можна автоматично перенести.'
+          : 'Не вдалося зробити тренування для годинника. Спробуйте ще раз або створіть його вручну.',
+      })
+    },
   })
 
   const submitFeedback = useMutation({
@@ -153,10 +164,18 @@ export function GroupPlanDetailPage() {
                       className="btn-secondary"
                       style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                       disabled={convertToWatch.isPending}
-                      onClick={() => convertToWatch.mutate({ sourceId: group.id, name: group.name })}
+                      onClick={() => {
+                        setWatchError(null)
+                        convertToWatch.mutate({ sourceId: group.id, name: group.name })
+                      }}
                     >
                       <IconDeviceWatch size={14} /> На годинник
                     </button>
+                    {watchError?.sourceId === group.id && (
+                      <p className="error" style={{ margin: '6px 0 0', fontSize: '0.8125rem' }}>
+                        {watchError.message}
+                      </p>
+                    )}
                   </div>
 
                   {isSelected && (

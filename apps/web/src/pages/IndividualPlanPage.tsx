@@ -33,6 +33,7 @@ export function IndividualPlanPage() {
   const qc = useQueryClient()
   const [searchParams] = useSearchParams()
   const [activeDayId, setActiveDayId] = useState<string | null>(() => searchParams.get('day'))
+  const [watchError, setWatchError] = useState<{ dayId: string; message: string } | null>(null)
 
   const { data: plans, isLoading } = useQuery<IndPlan[]>({
     queryKey: ['individual-plans'],
@@ -45,6 +46,15 @@ export function IndividualPlanPage() {
     mutationFn: (dayId: string) =>
       api.post('/watch-workouts/from-plan', { sourceType: 'INDIVIDUAL_DAY', sourceId: dayId }).then((r) => r.data),
     onSuccess: (data) => navigate(`/watch-workouts/${data.id}`),
+    onError: (err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      setWatchError({
+        dayId: convertToWatch.variables ?? '',
+        message: status === 422
+          ? 'Не вдалося зробити тренування для годинника: у цьому описі немає кроків, які можна автоматично перенести.'
+          : 'Не вдалося зробити тренування для годинника. Спробуйте ще раз або створіть його вручну.',
+      })
+    },
   })
 
   const submitFeedback = useMutation({
@@ -144,10 +154,18 @@ export function IndividualPlanPage() {
                   className="btn-secondary"
                   style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px' }}
                   disabled={convertToWatch.isPending}
-                  onClick={() => convertToWatch.mutate(day.id)}
+                  onClick={() => {
+                    setWatchError(null)
+                    convertToWatch.mutate(day.id)
+                  }}
                 >
                   <IconDeviceWatch size={13} /> На годинник
                 </button>
+                {watchError?.dayId === day.id && (
+                  <p className="error" style={{ margin: '6px 0 0', fontSize: '0.8125rem' }}>
+                    {watchError.message}
+                  </p>
+                )}
               </div>
 
               {session?.feedback && !isActive && (

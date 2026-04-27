@@ -58,8 +58,6 @@ function groupBySection<T>(items: T[], getSection: (item: T) => string, order?: 
 type MainTab = 'group' | 'individual'
 type TimeTab = 'upcoming' | 'past'
 
-// ─── Shared UI ───────────────────────────────────────────────────────────────
-
 function TabBar({ tabs, active, onChange }: { tabs: { value: string; label: string }[]; active: string; onChange: (v: string) => void }) {
   return (
     <div style={{ display: 'flex', borderBottom: '2px solid var(--color-border)', marginBottom: '1rem' }}>
@@ -158,8 +156,6 @@ function PanelShell({ createHref, createLabel, timeValue, onTimeChange, filters,
   )
 }
 
-// ─── Group Plans Panel ───────────────────────────────────────────────────────
-
 function GroupPlansPanel() {
   const [searchParams, setSearchParams] = useSearchParams()
   const timeTab = (searchParams.get('gtime') as TimeTab) ?? 'upcoming'
@@ -245,8 +241,6 @@ function GroupPlansPanel() {
   )
 }
 
-// ─── Individual Plans Panel ──────────────────────────────────────────────────
-
 function IndividualPlansPanel() {
   const [searchParams, setSearchParams] = useSearchParams()
   const timeTab = (searchParams.get('itime') as TimeTab) ?? 'upcoming'
@@ -323,8 +317,6 @@ function IndividualPlansPanel() {
   )
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
-
 export function TrainerDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const mainTab = (searchParams.get('tab') as MainTab) ?? 'group'
@@ -335,8 +327,15 @@ export function TrainerDashboardPage() {
 
   return (
     <div className="page">
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>Що тут відбувається</h3>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
+          Тут ви плануєте тренування для спортсменів. Якщо тренування потрібно виконати по кроках на годиннику, підготуйте його в розділі <Link to="/watch-workouts">Для годинника</Link>. Часті тренування можна зберігати в <Link to="/templates">Шаблонах</Link>.
+          </p>
+        </div>
+
       <TabBar
-        tabs={[{ value: 'group', label: 'Групові' }, { value: 'individual', label: 'Індивідуальні' }]}
+        tabs={[{ value: 'group', label: 'Групові плани' }, { value: 'individual', label: 'Індивідуальні плани' }]}
         active={mainTab}
         onChange={(v) => setMainTab(v as MainTab)}
       />

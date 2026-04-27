@@ -1,7 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import type { WatchSport } from '@training-plan/shared'
+import type { WatchSport, WatchWorkoutStep } from '@training-plan/shared'
+import { parseWorkout } from '../parsers/workout.js'
+import { watchStepsToPlanText } from '../utils/watchStepsToPlanText.js'
 
 const watchStepSchema = z.object({
   type: z.enum(['WARMUP', 'ACTIVE', 'RECOVERY', 'COOLDOWN', 'REST', 'REPEAT_BEGIN', 'REPEAT_END']),
@@ -239,6 +241,7 @@ export const templatesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const planDate = new Date(date)
       if (isNaN(planDate.getTime())) return reply.code(400).send({ error: 'Invalid date' })
+      const rawText = watchStepsToPlanText(template.steps as unknown as WatchWorkoutStep[]) || template.notes || template.name
 
       const plan = await fastify.prisma.trainingPlan.create({
         data: {
@@ -249,7 +252,8 @@ export const templatesRoutes: FastifyPluginAsync = async (fastify) => {
           exerciseGroups: {
             create: [{
               name: template.name,
-              rawText: template.notes ?? template.name,
+              rawText,
+              parsedData: (parseWorkout(rawText) ?? undefined) as Prisma.InputJsonValue | undefined,
               order: 0,
             }],
           },

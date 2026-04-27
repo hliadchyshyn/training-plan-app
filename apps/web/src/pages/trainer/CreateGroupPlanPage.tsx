@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
 import { useAuthStore } from '../../store/auth.js'
+import { TemplateLibraryPicker } from '../../components/TemplateLibraryPicker.js'
 
 interface ExerciseGroupDraft {
   name: string
@@ -40,11 +41,25 @@ export function CreateGroupPlanPage() {
     setGroups((gs) => gs.map((g, i) => (i === idx ? { ...g, preview: result.parsed } : g)))
   }
 
-  const addGroup = () =>
-    setGroups((gs) => [...gs, { name: '', rawText: '', preview: null }])
+  const addGroup = () => setGroups((gs) => [...gs, { name: '', rawText: '', preview: null }])
 
-  const removeGroup = (idx: number) =>
-    setGroups((gs) => gs.filter((_, i) => i !== idx))
+  const removeGroup = (idx: number) => setGroups((gs) => gs.filter((_, i) => i !== idx))
+
+  const applyTemplateToGroup = (template: { name: string; planText: string }) => {
+    setGroups((gs) => {
+      const next = [...gs]
+      const emptyIndex = next.findIndex((group) => !group.name.trim() && !group.rawText.trim())
+      const targetIndex = emptyIndex >= 0 ? emptyIndex : next.length - 1
+      next[targetIndex] = {
+        ...next[targetIndex],
+        name: template.name,
+        rawText: template.planText,
+        preview: null,
+      }
+      return next
+    })
+    setError('')
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,6 +77,13 @@ export function CreateGroupPlanPage() {
         Новий груповий план
       </h2>
       <form onSubmit={handleSubmit}>
+        <TemplateLibraryPicker
+          title="Додати тренування з бібліотеки"
+          description="Візьміть готовий шаблон і підставте його в одну з груп на цей день."
+          buttonLabel="Підставити в групу"
+          onApply={applyTemplateToGroup}
+        />
+
         <div className="form-group">
           <label>Дата тренування</label>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
@@ -108,7 +130,7 @@ export function CreateGroupPlanPage() {
                 rows={4}
                 value={group.rawText}
                 onChange={(e) => handleGroupChange(idx, 'rawText', e.target.value)}
-                placeholder="4*800м через 3 хв відпочинку. 2 серії між серіями 5 хв. Пейс 1.20-1.25 хлопці 1.30-1.35 дівчата"
+                placeholder="4*800м через 3 хв відпочинку. 2 серії, між серіями 5 хв."
               />
             </div>
             {isAdmin && (

@@ -3,8 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth.js'
 import { Layout } from './components/Layout.js'
 
-// ─── Lazy page imports ────────────────────────────────────────────────────────
-
 const named = <T extends string>(fn: () => Promise<Record<T, React.ComponentType>>, key: T) =>
   lazy(() => fn().then((m) => ({ default: m[key] })))
 
@@ -32,8 +30,10 @@ const WatchWorkoutsPage = lazy(() => import('./pages/WatchWorkoutsPage.js'))
 const WatchWorkoutDetailPage = lazy(() => import('./pages/WatchWorkoutDetailPage.js'))
 const CreateWatchWorkoutPage = lazy(() => import('./pages/CreateWatchWorkoutPage.js'))
 const EditWatchWorkoutPage = lazy(() => import('./pages/EditWatchWorkoutPage.js'))
-
-// ─── Auth guards ──────────────────────────────────────────────────────────────
+const TemplatesPage = lazy(() => import('./pages/TemplatesPage.js'))
+const TemplateDetailPage = lazy(() => import('./pages/TemplateDetailPage.js'))
+const EditTemplatePage = lazy(() => import('./pages/EditTemplatePage.js'))
+const HelpPage = lazy(() => import('./pages/HelpPage.js'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, _hasHydrated } = useAuthStore((s) => ({ user: s.user, _hasHydrated: s._hasHydrated }))
@@ -58,8 +58,6 @@ function NotFoundPage() {
     </div>
   )
 }
-
-// ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
   return (
@@ -137,11 +135,17 @@ export default function App() {
             <Route path="/strava/connected" element={<StravaCallbackPage />} />
             <Route path="/intervals" element={<IntervalsConnectPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/help" element={<HelpPage />} />
 
             <Route path="/watch-workouts" element={<WatchWorkoutsPage />} />
             <Route path="/watch-workouts/new" element={<CreateWatchWorkoutPage />} />
             <Route path="/watch-workouts/:id" element={<WatchWorkoutDetailPage />} />
             <Route path="/watch-workouts/:id/edit" element={<EditWatchWorkoutPage />} />
+
+            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/templates/new" element={<Navigate to="/watch-workouts/new?saveAsTemplate=1" replace />} />
+            <Route path="/templates/:id" element={<TemplateDetailPage />} />
+            <Route path="/templates/:id/edit" element={<EditTemplatePage />} />
 
             <Route
               path="/admin"

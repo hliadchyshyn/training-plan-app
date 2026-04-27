@@ -6,7 +6,7 @@ import {
 } from '@mantine/core'
 import {
   IconCalendar, IconUsers, IconChartBar, IconDeviceWatch,
-  IconShield, IconChevronsLeft, IconChevronsRight, IconUser,
+  IconShield, IconChevronsLeft, IconChevronsRight, IconUser, IconBooks, IconHelpCircle,
 } from '@tabler/icons-react'
 import { useAuthStore } from '../store/auth.js'
 import logoSvg from '../assets/logo.svg'
@@ -23,10 +23,12 @@ export function Layout() {
   const isAdmin = user?.role === 'ADMIN'
 
   const navItems = [
-    { to: '/', label: 'Мій план', icon: <IconCalendar size={20} />, active: pathname === '/', show: true },
-    { to: '/watch-workouts', label: 'Тренування', icon: <IconDeviceWatch size={20} />, active: pathname.startsWith('/watch-workouts'), show: true },
-    { to: '/trainer', label: 'Тренер', icon: <IconChartBar size={20} />, active: pathname === '/trainer', show: isTrainer },
-    { to: '/trainer/athletes', label: 'Команди', icon: <IconUsers size={20} />, active: pathname.startsWith('/trainer/athletes'), show: isTrainer },
+    { to: '/', label: 'Календар', icon: <IconCalendar size={20} />, active: pathname === '/', show: true },
+    { to: '/watch-workouts', label: 'Для годинника', icon: <IconDeviceWatch size={20} />, active: pathname.startsWith('/watch-workouts'), show: true },
+    { to: '/templates', label: 'Шаблони', icon: <IconBooks size={20} />, active: pathname.startsWith('/templates'), show: true },
+    { to: '/trainer', label: 'Плани тренера', icon: <IconChartBar size={20} />, active: pathname === '/trainer', show: isTrainer },
+    { to: '/trainer/athletes', label: 'Спортсмени', icon: <IconUsers size={20} />, active: pathname.startsWith('/trainer/athletes'), show: isTrainer },
+    { to: '/help', label: 'Як це працює', icon: <IconHelpCircle size={20} />, active: pathname.startsWith('/help'), show: true },
     { to: '/admin', label: 'Адмін', icon: <IconShield size={20} />, active: pathname.startsWith('/admin'), show: isAdmin },
   ]
 
@@ -77,7 +79,6 @@ export function Layout() {
             overflow: 'hidden',
           }}
         >
-          {/* Logo header */}
           <Box mb="md" style={{ padding: collapsed ? '0.75rem 0' : '0.75rem 0.5rem 0.75rem 0.75rem' }}>
             {collapsed ? (
               <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
@@ -115,7 +116,6 @@ export function Layout() {
             )}
           </Box>
 
-          {/* Nav items */}
           <Stack gap={2} style={{ flex: 1, padding: collapsed ? '0 0.375rem' : '0 0.5rem' }}>
             {navItems.filter((n) => n.show).map((n) => (
               <NavItem key={n.to} {...n} />
@@ -124,7 +124,6 @@ export function Layout() {
 
           <Divider my="sm" />
 
-          {/* Profile nav */}
           <Box px="xs" pb="xs">
             <NavItem
               to="/profile"
@@ -140,7 +139,6 @@ export function Layout() {
         </AppShell.Main>
       </AppShell>
 
-      {/* Mobile bottom navigation */}
       <Box
         hiddenFrom="sm"
         component="nav"

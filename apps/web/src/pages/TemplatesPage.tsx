@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ActionIcon } from '@mantine/core'
 import { IconPlus, IconBooks } from '@tabler/icons-react'
@@ -62,7 +62,6 @@ function formatDuration(sec: number): string {
 
 export default function TemplatesPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [tab, setTab] = useState<'all' | 'mine'>('all')
   const [sport, setSport] = useState('')
   const [search, setSearch] = useState('')
@@ -77,14 +76,6 @@ export default function TemplatesPage() {
     },
   })
 
-  const forkMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/templates/${id}/fork`),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] })
-      navigate(`/templates/${res.data.id}`)
-    },
-  })
-
   const filtered = search
     ? templates.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
     : templates
@@ -92,13 +83,17 @@ export default function TemplatesPage() {
   return (
     <div className="page">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Бібліотека тренувань</h2>
-        <button className="btn-primary hide-mobile" onClick={() => navigate('/templates/new')}>
-          + Створити
+        <div>
+          <h2 style={{ margin: 0 }}>Бібліотека тренувань</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>
+            Зберігайте тут тренування, які часто повторюються, і швидко додавайте їх у план або готуйте для годинника.
+          </p>
+        </div>
+        <button className="btn-primary hide-mobile" onClick={() => navigate('/watch-workouts/new?saveAsTemplate=1')}>
+          + Створити шаблон
         </button>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid var(--color-border)', paddingBottom: 0 }}>
         {([['all', 'Бібліотека'], ['mine', 'Мої шаблони']] as const).map(([key, label]) => (
           <button
@@ -117,7 +112,6 @@ export default function TemplatesPage() {
         ))}
       </div>
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <input
           type="text"
@@ -143,7 +137,7 @@ export default function TemplatesPage() {
         <div className="page-empty">
           <IconBooks size={40} color="var(--color-text-muted)" />
           <p>{tab === 'mine' ? 'У вас ще немає шаблонів.' : 'Шаблонів не знайдено.'}</p>
-          <button className="btn-primary" onClick={() => navigate('/templates/new')}>
+          <button className="btn-primary" onClick={() => navigate('/watch-workouts/new?saveAsTemplate=1')}>
             Створити шаблон
           </button>
         </div>
@@ -172,16 +166,6 @@ export default function TemplatesPage() {
                     </p>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="btn-secondary"
-                    style={{ fontSize: 12, padding: '3px 8px', whiteSpace: 'nowrap' }}
-                    onClick={() => forkMutation.mutate(t.id)}
-                    disabled={forkMutation.isPending}
-                  >
-                    Зберегти копію
-                  </button>
-                </div>
               </div>
               {t.notes && (
                 <p style={{ margin: '8px 0 0', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{t.notes}</p>
@@ -191,7 +175,7 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      <ActionIcon className="fab" radius="xl" size={56} onClick={() => navigate('/templates/new')} aria-label="Створити шаблон">
+      <ActionIcon className="fab" radius="xl" size={56} onClick={() => navigate('/watch-workouts/new?saveAsTemplate=1')} aria-label="Створити шаблон">
         <IconPlus size={24} />
       </ActionIcon>
     </div>

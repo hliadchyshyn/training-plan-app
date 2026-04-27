@@ -97,19 +97,32 @@ export default function EditTemplatePage() {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </div>
 
-        {canPublish && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <input
-              type="checkbox"
-              id="isPublic"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
-            <label htmlFor="isPublic" style={{ margin: 0, cursor: 'pointer', fontSize: 14 }}>
-              Опублікувати в загальній бібліотеці
-            </label>
+        <div className="card" style={{ marginBottom: 16, padding: '12px 14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div>
+              <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>Видимість шаблону</h3>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
+                Поточний статус: <strong>{isPublic ? 'Публічний' : 'Персональний'}</strong>
+              </p>
+            </div>
+            {canPublish ? (
+              <label htmlFor="isPublic" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+                <span style={{ fontSize: 14 }}>Показувати в загальній бібліотеці</span>
+              </label>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)' }}>
+                Лише тренер або адмін може змінювати публічність.
+              </p>
+            )}
           </div>
-        )}
+        </div>
 
         <h3 style={{ marginBottom: 8 }}>Кроки</h3>
         <WatchWorkoutStepList steps={steps} onChange={setSteps} />

@@ -63,10 +63,9 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
 
         {error && <Text c="red" size="sm">{error}</Text>}
 
-        {/* Schedule to calendar */}
         <div style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 8, padding: '10px 12px' }}>
           <Text size="sm" fw={500} mb={8} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <IconCalendar size={15} /> Запланувати на дату
+            <IconCalendar size={15} /> Додати в мій календар
           </Text>
           <Group gap={8} align="flex-end">
             <input
@@ -97,7 +96,7 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
           disabled={isPending}
           fullWidth
         >
-          Синхронізувати на годинник
+          Створити для годинника
         </Button>
 
         <Button
