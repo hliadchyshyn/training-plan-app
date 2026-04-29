@@ -330,7 +330,7 @@ export function TrainerDashboardPage() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>Що тут відбувається</h3>
           <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
-          Тут ви плануєте тренування для спортсменів. Якщо тренування потрібно виконати по кроках на годиннику, підготуйте його в розділі <Link to="/watch-workouts">Для годинника</Link>. Часті тренування можна зберігати в <Link to="/templates">Шаблонах</Link>.
+          Тут ви плануєте тренування для спортсменів. Якщо тренування потрібно виконати по кроках на годиннику, підготуйте його через <Link to="/templates">Тренування</Link>. Часті тренування можна зберігати там само як шаблони.
           </p>
         </div>
 

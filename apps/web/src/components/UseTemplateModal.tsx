@@ -25,7 +25,7 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
       onClose()
       navigate(`/watch-workouts/${res.data.id}`)
     },
-    onError: () => setError('Помилка створення тренування для годинника'),
+    onError: () => setError('Помилка підготовки тренування для годинника'),
   })
 
   const toCalendarMutation = useMutation({
@@ -96,7 +96,7 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
           disabled={isPending}
           fullWidth
         >
-          Створити для годинника
+          Підготувати для годинника
         </Button>
 
         <Button

@@ -189,9 +189,14 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) },
     async (request, reply) => {
       const userId = request.user.sub as string
+      const role = request.user.role
       const { id } = request.params as { id: string }
       const { date } = request.body as { date: string }
       if (!date) return reply.code(400).send({ error: 'date required' })
+
+      if (role !== 'ATHLETE') {
+        return reply.code(403).send({ error: 'Only athletes can add watch workouts to their calendar' })
+      }
 
       const workout = await fastify.prisma.watchWorkout.findUnique({ where: { id } })
       if (!workout) return reply.code(404).send({ error: 'Not found' })

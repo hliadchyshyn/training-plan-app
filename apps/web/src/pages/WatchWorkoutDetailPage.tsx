@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client.js'
+import { useAuthStore } from '../store/auth.js'
 import type { WatchWorkoutStep, WatchSport } from '@training-plan/shared'
 
 interface WatchWorkout {
@@ -63,15 +64,14 @@ function formatPace(secPerKm: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
 function WorkoutStepsList({ steps }: { steps: WatchWorkoutStep[] }) {
   let depth = 0
+
   return (
     <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
       {steps.map((step, i) => {
         if (step.type === 'REPEAT_BEGIN') {
-          const el = (
+          const element = (
             <div
               key={i}
               style={{
@@ -87,12 +87,14 @@ function WorkoutStepsList({ steps }: { steps: WatchWorkoutStep[] }) {
             </div>
           )
           depth++
-          return el
+          return element
         }
+
         if (step.type === 'REPEAT_END') {
           depth = Math.max(0, depth - 1)
           return null
         }
+
         return (
           <div
             key={i}
@@ -121,7 +123,7 @@ function WorkoutStepsList({ steps }: { steps: WatchWorkoutStep[] }) {
               <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                 {formatDuration(step.durationUnit, step.durationValue)}
                 {step.targetUnit === 'PACE' && step.targetFrom && step.targetTo && (
-                  <> · Темп: {formatPace(step.targetFrom)}–{formatPace(step.targetTo)} /км</>
+                  <> · Темп: {formatPace(step.targetFrom)}-{formatPace(step.targetTo)} /км</>
                 )}
               </div>
             </div>
@@ -149,7 +151,7 @@ function ScheduleCard({
 }) {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <strong>Запланувати тренування</strong>
+      <strong>Додати в календар</strong>
       <p style={{ margin: '4px 0 12px', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
         Тренування з'явиться у вашому календарі на вибрану дату.
       </p>
@@ -161,12 +163,12 @@ function ScheduleCard({
           style={{ flex: '0 1 160px' }}
         />
         <button className="btn-primary" onClick={onSchedule} disabled={isPending}>
-          {isPending ? 'Збереження...' : 'Запланувати'}
+          {isPending ? 'Збереження...' : 'Додати'}
         </button>
       </div>
       {success && (
         <p style={{ margin: '8px 0 0', color: 'var(--color-success)', fontSize: '0.875rem' }}>
-          ✓ Додано в календар
+          Тренування додано в календар
         </p>
       )}
       {error && <p className="error" style={{ margin: '8px 0 0' }}>{error}</p>}
@@ -197,9 +199,9 @@ function IntervalsCard({
 }) {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <strong>Відправити на Intervals.icu</strong>
+      <strong>Синхронізувати через Intervals.icu</strong>
       <p style={{ margin: '4px 0 12px', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-        Тренування потрапить у ваш календар і автоматично синхронізується з Garmin, Wahoo та ін.
+        Тренування потрапить у ваш календар Intervals.icu і далі синхронізується з Garmin, Wahoo та іншими платформами.
       </p>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
@@ -209,12 +211,12 @@ function IntervalsCard({
           style={{ flex: '0 1 160px' }}
         />
         <button className="btn-primary" onClick={onPush} disabled={isPushPending}>
-          {isPushPending ? 'Відправка...' : 'Відправити'}
+          {isPushPending ? 'Відправка...' : 'Синхронізувати'}
         </button>
       </div>
       {pushSuccess && (
         <p style={{ margin: '8px 0 0', color: 'var(--color-success)', fontSize: '0.875rem' }}>
-          ✓ Тренування додано в календар Intervals.icu
+          Тренування додано в календар Intervals.icu
         </p>
       )}
       {pushError && <p className="error" style={{ margin: '8px 0 0' }}>{pushError}</p>}
@@ -242,28 +244,28 @@ function IntervalsCard({
 function DownloadCard({ onDownload }: { onDownload: () => void }) {
   return (
     <div className="card card-success" style={{ marginBottom: 16 }}>
-      <strong>Завантажити на Garmin</strong>
+      <strong>Завантажити для Garmin</strong>
       <p style={{ margin: '4px 0 4px', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
         Підключіть годинник до комп'ютера через USB і перемістіть файл до папки <code>/Garmin/NewFiles/</code>.
         Після від'єднання тренування з'явиться в меню годинника.
       </p>
       <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
         Coros: імпорт структурованих тренувань через FIT файл не підтримується.
-        Створіть тренування вручну в додатку Coros (Бібліотека тренувань).
+        Створіть тренування вручну в додатку Coros.
       </p>
       <button className="btn-primary" onClick={onDownload}>
-        ⬇ Завантажити .fit файл
+        Завантажити .fit файл
       </button>
     </div>
   )
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
-
 export default function WatchWorkoutDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const userRole = useAuthStore((s) => s.user?.role)
+  const canScheduleToCalendar = userRole === 'ATHLETE'
 
   const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [scheduleSuccess, setScheduleSuccess] = useState(false)
@@ -290,8 +292,8 @@ export default function WatchWorkoutDetailPage() {
       setPushError('')
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setPushError(msg ?? 'Помилка відправки')
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setPushError(message ?? 'Помилка відправки')
     },
   })
 
@@ -302,8 +304,8 @@ export default function WatchWorkoutDetailPage() {
       setPushSuccess(false)
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      setPushError(msg ?? 'Помилка видалення')
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setPushError(message ?? 'Помилка видалення')
     },
   })
 
@@ -325,7 +327,7 @@ export default function WatchWorkoutDetailPage() {
     mutationFn: () => api.delete(`/watch-workouts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['watch-workouts'] })
-      navigate('/watch-workouts')
+      navigate('/templates')
     },
   })
 
@@ -342,10 +344,10 @@ export default function WatchWorkoutDetailPage() {
   const handleDownload = async () => {
     const response = await api.get(`/watch-workouts/${id}/export/fit`, { responseType: 'blob' })
     const url = URL.createObjectURL(new Blob([response.data]))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${workout?.name ?? 'workout'}.fit`
-    a.click()
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${workout?.name ?? 'workout'}.fit`
+    link.click()
     URL.revokeObjectURL(url)
   }
 
@@ -354,7 +356,7 @@ export default function WatchWorkoutDetailPage() {
 
   return (
     <div className="page">
-      <button className="btn-back" onClick={() => navigate('/watch-workouts')}>← Назад</button>
+      <button className="btn-back" onClick={() => navigate('/templates')}>← До тренувань</button>
 
       <div style={{ marginBottom: 8 }}>
         <h2 style={{ margin: '0 0 8px' }}>{workout.name}</h2>
@@ -381,7 +383,7 @@ export default function WatchWorkoutDetailPage() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <span className="badge">{SPORT_LABEL[workout.sport]}</span>
         {workout.sourceType && workout.sourceType !== 'MANUAL' && (
-          <span className="badge badge-partial">Конвертовано з плану</span>
+          <span className="badge badge-partial">З календаря або плану</span>
         )}
       </div>
 
@@ -393,14 +395,16 @@ export default function WatchWorkoutDetailPage() {
 
       <WorkoutStepsList steps={workout.steps} />
 
-      <ScheduleCard
-        scheduleDate={scheduleDate}
-        isPending={scheduleMutation.isPending}
-        success={scheduleSuccess}
-        error={scheduleError}
-        onDateChange={(date) => { setScheduleDate(date); setScheduleSuccess(false) }}
-        onSchedule={() => scheduleMutation.mutate()}
-      />
+      {canScheduleToCalendar && (
+        <ScheduleCard
+          scheduleDate={scheduleDate}
+          isPending={scheduleMutation.isPending}
+          success={scheduleSuccess}
+          error={scheduleError}
+          onDateChange={(date) => { setScheduleDate(date); setScheduleSuccess(false) }}
+          onSchedule={() => scheduleMutation.mutate()}
+        />
+      )}
 
       {intervalsStatus?.connected ? (
         <IntervalsCard
@@ -418,7 +422,7 @@ export default function WatchWorkoutDetailPage() {
         <div className="card" style={{ marginBottom: 16, borderStyle: 'dashed' }}>
           <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
             <a href="/intervals" style={{ color: 'var(--color-primary)' }}>Підключіть Intervals.icu</a>{' '}
-            щоб синхронізувати тренування з Garmin, Wahoo та Coros
+            щоб синхронізувати тренування з Garmin, Wahoo та Coros.
           </p>
         </div>
       )}

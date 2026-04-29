@@ -74,8 +74,8 @@ export default function EditWatchWorkoutPage() {
           <div className="form-group" style={{ flex: '1 1 140px' }}>
             <label>Вид спорту</label>
             <select value={sport} onChange={(e) => setSport(e.target.value as WatchSport)}>
-              {SPORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+              {SPORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
@@ -90,15 +90,15 @@ export default function EditWatchWorkoutPage() {
         <WatchWorkoutStepList steps={steps} onChange={setSteps} />
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0 20px' }}>
-          {STEP_TYPE_OPTIONS.map((o) => (
+          {STEP_TYPE_OPTIONS.map((option) => (
             <button
-              key={o.value}
+              key={option.value}
               type="button"
               className="btn-secondary"
               style={{ fontSize: '0.8125rem', padding: '4px 10px' }}
-              onClick={() => setSteps((s) => [...s, makeStep(o.value)])}
+              onClick={() => setSteps((currentSteps) => [...currentSteps, makeStep(option.value)])}
             >
-              + {o.label}
+              + {option.label}
             </button>
           ))}
         </div>

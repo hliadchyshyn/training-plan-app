@@ -77,103 +77,214 @@ export default function CreateWatchWorkoutPage() {
   }
 
   return (
-    <div className="page">
-      <button className="btn-back" onClick={() => navigate(saveAsTemplate ? '/templates' : '/watch-workouts')}>← Назад</button>
-      <h2>{saveAsTemplate ? 'Новий шаблон тренування' : 'Нове тренування для годинника'}</h2>
+      <div className='page'>
+          <button className='btn-back' onClick={() => navigate('/templates')}>
+              ← Назад
+          </button>
+          <h2>
+              {saveAsTemplate
+                  ? 'Новий шаблон тренування'
+                  : 'Нове тренування для синхронізації'}
+          </h2>
 
-      {saveAsTemplate && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>Шаблон для повторного використання</h3>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
-            Опишіть тренування по кроках один раз. Після збереження його можна буде швидко додавати в нові плани або готувати для годинника.
-          </p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-          <div className="form-group" style={{ flex: '2 1 200px' }}>
-            <label>Назва</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={saveAsTemplate ? 'Інтервальне тренування 10x400м' : 'Інтервальне тренування'}
-              required
-            />
+          <div className='card' style={{ marginBottom: 16 }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>
+                  {saveAsTemplate
+                      ? 'Шаблон для повторного використання'
+                      : 'Разове тренування для годинника'}
+              </h3>
+              <p
+                  style={{
+                      margin: 0,
+                      fontSize: 14,
+                      color: 'var(--color-text-muted)',
+                  }}
+              >
+                  {saveAsTemplate
+                      ? 'Опишіть тренування по кроках один раз. Після збереження його можна буде швидко додавати в нові плани або готувати для годинника.'
+                      : 'Створіть тренування по кроках і одразу перейдіть до синхронізації в Intervals.icu або завантаження `.fit` для Garmin.'}
+              </p>
           </div>
-          <div className="form-group" style={{ flex: '1 1 140px' }}>
-            <label>Вид спорту</label>
-            <select value={sport} onChange={(e) => setSport(e.target.value as WatchSport)}>
-              {SPORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        <div className="form-group">
-          <label>Нотатки (опціонально)</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-        </div>
-
-        {saveAsTemplate && (
-          <div className="card" style={{ marginBottom: 16, padding: '12px 14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div>
-                <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>Видимість шаблону</h3>
-                <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
-                  Поточний статус: <strong>{isTemplatePublic ? 'Публічний' : 'Персональний'}</strong>
-                </p>
+          <form onSubmit={handleSubmit}>
+              <div
+                  style={{
+                      display: 'flex',
+                      gap: 12,
+                      flexWrap: 'wrap',
+                      marginBottom: 16,
+                  }}
+              >
+                  <div className='form-group' style={{ flex: '2 1 200px' }}>
+                      <label>Назва</label>
+                      <input
+                          type='text'
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder={
+                              saveAsTemplate
+                                  ? 'Інтервальне тренування 10x400м'
+                                  : 'Інтервальне тренування'
+                          }
+                          required
+                      />
+                  </div>
+                  <div className='form-group' style={{ flex: '1 1 140px' }}>
+                      <label>Вид спорту</label>
+                      <select
+                          value={sport}
+                          onChange={(e) =>
+                              setSport(e.target.value as WatchSport)
+                          }
+                      >
+                          {SPORT_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                  {option.label}
+                              </option>
+                          ))}
+                      </select>
+                  </div>
               </div>
-              {canPublishTemplate ? (
-                <label htmlFor="isTemplatePublic" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    id="isTemplatePublic"
-                    checked={isTemplatePublic}
-                    onChange={(e) => setIsTemplatePublic(e.target.checked)}
-                    style={{ width: 'auto' }}
+
+              <div className='form-group'>
+                  <label>Нотатки (опціонально)</label>
+                  <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
                   />
-                  <span style={{ fontSize: 14 }}>Показувати в загальній бібліотеці</span>
-                </label>
-              ) : (
-                <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)' }}>
-                  Лише тренер або адмін може змінювати публічність.
-                </p>
+              </div>
+
+              {saveAsTemplate && (
+                  <div
+                      className='card'
+                      style={{ marginBottom: 16, padding: '12px 14px' }}
+                  >
+                      <div
+                          style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              alignItems: 'flex-start',
+                              flexWrap: 'wrap',
+                          }}
+                      >
+                          <div>
+                              <h3
+                                  style={{
+                                      margin: '0 0 4px',
+                                      fontSize: '1rem',
+                                  }}
+                              >
+                                  Видимість шаблону
+                              </h3>
+                              <p
+                                  style={{
+                                      margin: 0,
+                                      fontSize: 14,
+                                      color: 'var(--color-text-muted)',
+                                  }}
+                              >
+                                  Поточний статус:{' '}
+                                  <strong>
+                                      {isTemplatePublic
+                                          ? 'Публічний'
+                                          : 'Персональний'}
+                                  </strong>
+                              </p>
+                          </div>
+                          {canPublishTemplate ? (
+                              <label
+                                  htmlFor='isTemplatePublic'
+                                  style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      margin: 0,
+                                      cursor: 'pointer',
+                                  }}
+                              >
+                                  <input
+                                      type='checkbox'
+                                      id='isTemplatePublic'
+                                      checked={isTemplatePublic}
+                                      onChange={(e) =>
+                                          setIsTemplatePublic(e.target.checked)
+                                      }
+                                      style={{ width: 'auto' }}
+                                  />
+                                  <span style={{ fontSize: 14 }}>
+                                      Показувати в загальній бібліотеці
+                                  </span>
+                              </label>
+                          ) : (
+                              <p
+                                  style={{
+                                      margin: 0,
+                                      fontSize: 13,
+                                      color: 'var(--color-text-muted)',
+                                  }}
+                              >
+                                  Лише тренер або адмін може змінювати
+                                  публічність.
+                              </p>
+                          )}
+                      </div>
+                  </div>
               )}
-            </div>
-          </div>
-        )}
 
-        <h3 style={{ marginBottom: 8 }}>Кроки</h3>
-        <WatchWorkoutStepList steps={steps} onChange={setSteps} />
+              <h3 style={{ marginBottom: 8 }}>Кроки</h3>
+              <WatchWorkoutStepList steps={steps} onChange={setSteps} />
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0 20px' }}>
-          {STEP_TYPE_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              className="btn-secondary"
-              style={{ fontSize: '0.8125rem', padding: '4px 10px' }}
-              onClick={() => setSteps((s) => [...s, makeStep(o.value)])}
-            >
-              + {o.label}
-            </button>
-          ))}
-        </div>
+              <div
+                  style={{
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      margin: '12px 0 20px',
+                  }}
+              >
+                  {STEP_TYPE_OPTIONS.map((option) => (
+                      <button
+                          key={option.value}
+                          type='button'
+                          className='btn-secondary'
+                          style={{ fontSize: '0.8125rem', padding: '4px 10px' }}
+                          onClick={() =>
+                              setSteps((currentSteps) => [
+                                  ...currentSteps,
+                                  makeStep(option.value),
+                              ])
+                          }
+                      >
+                          + {option.label}
+                      </button>
+                  ))}
+              </div>
 
-        {error && <p className="error">{error}</p>}
+              {error && <p className='error'>{error}</p>}
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-            {createMutation.isPending ? 'Збереження...' : saveAsTemplate ? 'Зберегти як шаблон' : 'Зберегти'}
-          </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate(saveAsTemplate ? '/templates' : '/watch-workouts')}>
-            Скасувати
-          </button>
-        </div>
-      </form>
-    </div>
-  )
+              <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                      type='submit'
+                      className='btn-primary'
+                      disabled={createMutation.isPending}
+                  >
+                      {createMutation.isPending
+                          ? 'Збереження...'
+                          : saveAsTemplate
+                            ? 'Зберегти як шаблон'
+                            : 'Зберегти і перейти до синхронізації'}
+                  </button>
+                  <button
+                      type='button'
+                      className='btn-secondary'
+                      onClick={() => navigate('/templates')}
+                  >
+                      Скасувати
+                  </button>
+              </div>
+          </form>
+      </div>
+  );
 }

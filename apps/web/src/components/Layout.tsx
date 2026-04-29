@@ -5,8 +5,15 @@ import {
   Divider, Box, Tooltip,
 } from '@mantine/core'
 import {
-  IconCalendar, IconUsers, IconChartBar, IconDeviceWatch,
-  IconShield, IconChevronsLeft, IconChevronsRight, IconUser, IconBooks, IconHelpCircle,
+  IconCalendar,
+  IconUsers,
+  IconChartBar,
+  IconShield,
+  IconChevronsLeft,
+  IconChevronsRight,
+  IconUser,
+  IconBooks,
+  IconHelpCircle,
 } from '@tabler/icons-react'
 import { useAuthStore } from '../store/auth.js'
 import logoSvg from '../assets/logo.svg'
@@ -21,15 +28,51 @@ export function Layout() {
 
   const isTrainer = user?.role === 'TRAINER' || user?.role === 'ADMIN'
   const isAdmin = user?.role === 'ADMIN'
+  const showAthleteCalendar = !isTrainer
 
   const navItems = [
-    { to: '/', label: 'Календар', icon: <IconCalendar size={20} />, active: pathname === '/', show: true },
-    { to: '/watch-workouts', label: 'Для годинника', icon: <IconDeviceWatch size={20} />, active: pathname.startsWith('/watch-workouts'), show: true },
-    { to: '/templates', label: 'Шаблони', icon: <IconBooks size={20} />, active: pathname.startsWith('/templates'), show: true },
-    { to: '/trainer', label: 'Плани тренера', icon: <IconChartBar size={20} />, active: pathname === '/trainer', show: isTrainer },
-    { to: '/trainer/athletes', label: 'Спортсмени', icon: <IconUsers size={20} />, active: pathname.startsWith('/trainer/athletes'), show: isTrainer },
-    { to: '/help', label: 'Як це працює', icon: <IconHelpCircle size={20} />, active: pathname.startsWith('/help'), show: true },
-    { to: '/admin', label: 'Адмін', icon: <IconShield size={20} />, active: pathname.startsWith('/admin'), show: isAdmin },
+    {
+      to: '/',
+      label: 'Календар',
+      icon: <IconCalendar size={20} />,
+      active: pathname === '/',
+      show: showAthleteCalendar,
+    },
+    {
+      to: '/templates',
+      label: 'Шаблони',
+      icon: <IconBooks size={20} />,
+      active: pathname.startsWith('/templates') || pathname.startsWith('/watch-workouts'),
+      show: true,
+    },
+    {
+      to: '/trainer',
+      label: 'Плани тренера',
+      icon: <IconChartBar size={20} />,
+      active: pathname === '/trainer',
+      show: isTrainer,
+    },
+    {
+      to: '/trainer/athletes',
+      label: 'Спортсмени',
+      icon: <IconUsers size={20} />,
+      active: pathname.startsWith('/trainer/athletes'),
+      show: isTrainer,
+    },
+    {
+      to: '/help',
+      label: 'Як це працює',
+      icon: <IconHelpCircle size={20} />,
+      active: pathname.startsWith('/help'),
+      show: true,
+    },
+    {
+      to: '/admin',
+      label: 'Адмін',
+      icon: <IconShield size={20} />,
+      active: pathname.startsWith('/admin'),
+      show: isAdmin,
+    },
   ]
 
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH
@@ -182,11 +225,18 @@ export function Layout() {
         <Link
           to="/profile"
           style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 2, padding: '0.5rem 0.25rem',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+            padding: '0.5rem 0.25rem',
             textDecoration: 'none',
             color: pathname === '/profile' ? 'var(--color-primary)' : 'var(--mantine-color-gray-5)',
-            fontSize: '0.625rem', fontWeight: pathname === '/profile' ? 600 : 400, minHeight: 56,
+            fontSize: '0.625rem',
+            fontWeight: pathname === '/profile' ? 600 : 400,
+            minHeight: 56,
           }}
         >
           <IconUser size={20} />

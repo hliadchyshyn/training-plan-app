@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth.js'
 import { Layout } from './components/Layout.js'
+import type { Role } from '@training-plan/shared'
 
 const named = <T extends string>(fn: () => Promise<Record<T, React.ComponentType>>, key: T) =>
   lazy(() => fn().then((m) => ({ default: m[key] })))
@@ -26,7 +27,6 @@ const StravaConnectCallbackPage = lazy(() => import('./pages/StravaConnectCallba
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage.js'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage.js'))
 const IntervalsConnectPage = lazy(() => import('./pages/IntervalsConnectPage.js'))
-const WatchWorkoutsPage = lazy(() => import('./pages/WatchWorkoutsPage.js'))
 const WatchWorkoutDetailPage = lazy(() => import('./pages/WatchWorkoutDetailPage.js'))
 const CreateWatchWorkoutPage = lazy(() => import('./pages/CreateWatchWorkoutPage.js'))
 const EditWatchWorkoutPage = lazy(() => import('./pages/EditWatchWorkoutPage.js'))
@@ -42,10 +42,21 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function getHomePath(role?: Role) {
+  return role === 'TRAINER' || role === 'ADMIN' ? '/trainer' : '/'
+}
+
+function HomePage() {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role === 'TRAINER' || user.role === 'ADMIN') return <Navigate to="/trainer" replace />
+  return <WeeklyCalendarPage />
+}
+
 function RequireRole({ roles, children }: { roles: string[]; children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!roles.includes(user.role)) return <Navigate to="/" replace />
+  if (!roles.includes(user.role)) return <Navigate to={getHomePath(user.role)} replace />
   return <>{children}</>
 }
 
@@ -78,7 +89,7 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<WeeklyCalendarPage />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/plan/:id" element={<GroupPlanDetailPage />} />
             <Route path="/individual-plan/:id" element={<IndividualPlanPage />} />
 
@@ -137,7 +148,7 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/help" element={<HelpPage />} />
 
-            <Route path="/watch-workouts" element={<WatchWorkoutsPage />} />
+            <Route path="/watch-workouts" element={<Navigate to="/templates" replace />} />
             <Route path="/watch-workouts/new" element={<CreateWatchWorkoutPage />} />
             <Route path="/watch-workouts/:id" element={<WatchWorkoutDetailPage />} />
             <Route path="/watch-workouts/:id/edit" element={<EditWatchWorkoutPage />} />
