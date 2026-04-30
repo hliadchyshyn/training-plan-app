@@ -185,6 +185,11 @@ label {
     flex-direction: column !important;
     align-items: stretch !important;
   }
+
+  .templates-cta-row {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* Safe area for iOS notch / home indicator */

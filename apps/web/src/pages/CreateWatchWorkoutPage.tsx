@@ -274,7 +274,7 @@ export default function CreateWatchWorkoutPage() {
                           ? 'Збереження...'
                           : saveAsTemplate
                             ? 'Зберегти як шаблон'
-                            : 'Зберегти і перейти до синхронізації'}
+                            : 'Синхронізувати'}
                   </button>
                   <button
                       type='button'

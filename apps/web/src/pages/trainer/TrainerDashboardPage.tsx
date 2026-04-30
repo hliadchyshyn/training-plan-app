@@ -321,17 +321,47 @@ export function TrainerDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const mainTab = (searchParams.get('tab') as MainTab) ?? 'group'
   const navigate = useNavigate()
+  const [showInfo, setShowInfo] = useState(false)
 
   const setMainTab = (tab: MainTab) => setSearchParams({ tab }, { replace: true })
   const fabHref = mainTab === 'group' ? '/trainer/plans/new' : '/trainer/plans/new/individual'
 
   return (
     <div className="page">
-        <div className="card" style={{ marginBottom: 16 }}>
-          <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>Що тут відбувається</h3>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
-          Тут ви плануєте тренування для спортсменів. Якщо тренування потрібно виконати по кроках на годиннику, підготуйте його через <Link to="/templates">Тренування</Link>. Часті тренування можна зберігати там само як шаблони.
-          </p>
+        <div className="card" style={{ marginBottom: 16, padding: '0.75rem 1rem' }}>
+          <button
+            type="button"
+            onClick={() => setShowInfo((value) => !value)}
+            aria-expanded={showInfo}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              textAlign: 'left',
+              color: 'var(--color-text)',
+            }}
+          >
+            <strong style={{ display: 'block', fontSize: 16 }}>
+              Про плани
+            </strong>
+            <span style={{ fontSize: 20, lineHeight: 1, color: 'var(--color-text-muted)' }}>
+              {showInfo ? '−' : '+'}
+            </span>
+          </button>
+
+          {showInfo && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)' }}>
+                Тут ви плануєте тренування для спортсменів. Якщо тренування потрібно виконати по кроках на годиннику, підготуйте його через <Link to="/templates">Шаблони</Link>. Часті тренування можна зберігати там само як шаблони.
+              </p>
+            </div>
+          )}
         </div>
 
       <TabBar

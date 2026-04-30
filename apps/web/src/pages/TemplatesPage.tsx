@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ActionIcon } from '@mantine/core'
-import { IconPlus, IconBooks, IconDeviceWatch } from '@tabler/icons-react';
+import { IconBooks, IconDeviceWatch } from '@tabler/icons-react';
 import { api } from '../api/client.js'
 import type { WatchSport, WatchWorkoutStep } from '@training-plan/shared'
 
@@ -87,6 +86,7 @@ export default function TemplatesPage() {
   const [tab, setTab] = useState<'all' | 'mine'>('all')
   const [sport, setSport] = useState('')
   const [search, setSearch] = useState('')
+  const [showInfo, setShowInfo] = useState(false)
 
   const { data: templates = [], isLoading } = useQuery<Template[]>({
     queryKey: ['templates', tab, sport],
@@ -129,9 +129,10 @@ export default function TemplatesPage() {
                       підготувати тренування для синхронізації на годинник.
                   </p>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className='templates-cta-row' style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
                   <button
-                      className='btn-secondary hide-mobile'
+                      className='btn-secondary'
+                      style={{ flex: 1, whiteSpace: 'nowrap' }}
                       onClick={() => navigate('/watch-workouts/new')}
                   >
                       <span
@@ -139,6 +140,7 @@ export default function TemplatesPage() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 6,
+                              whiteSpace: 'nowrap',
                           }}
                       >
                           <IconDeviceWatch size={16} />
@@ -146,7 +148,8 @@ export default function TemplatesPage() {
                       </span>
                   </button>
                   <button
-                      className='btn-primary hide-mobile'
+                      className='btn-primary'
+                      style={{ flex: 1, whiteSpace: 'nowrap' }}
                       onClick={() =>
                           navigate('/watch-workouts/new?saveAsTemplate=1')
                       }
@@ -156,65 +159,91 @@ export default function TemplatesPage() {
               </div>
           </div>
 
-          <div className='card' style={{ marginBottom: 16 }}>
-              <div
-                  style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+          <div className='card' style={{ marginBottom: 16, padding: '0.75rem 1rem' }}>
+              <button
+                  type='button'
+                  onClick={() => setShowInfo((value) => !value)}
+                  aria-expanded={showInfo}
+                  style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      color: 'var(--color-text)',
+                  }}
               >
-                  <div
-                      style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 10,
-                      }}
-                  >
-                      <IconBooks
-                          size={18}
-                          style={{ flexShrink: 0, marginTop: 2 }}
-                      />
-                      <div>
-                          <strong style={{ display: 'block', marginBottom: 2 }}>
-                              Шаблони для повторного використання
-                          </strong>
-                          <span
-                              style={{
-                                  fontSize: 14,
-                                  color: 'var(--color-text-muted)',
-                              }}
-                          >
-                              Зберігайте типові тренування в бібліотеці, щоб
-                              швидко додавати їх у плани або готувати для
-                              годинника.
-                          </span>
+                  <strong style={{ display: 'block', fontSize: 16 }}>
+                      Про шаблони
+                  </strong>
+                  <span style={{ fontSize: 20, lineHeight: 1, color: 'var(--color-text-muted)' }}>
+                      {showInfo ? '−' : '+'}
+                  </span>
+              </button>
+
+              {showInfo && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                      <div
+                          style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 10,
+                          }}
+                      >
+                          <IconBooks
+                              size={18}
+                              style={{ flexShrink: 0, marginTop: 2 }}
+                          />
+                          <div>
+                              <strong style={{ display: 'block', marginBottom: 2 }}>
+                                  Шаблони для повторного використання
+                              </strong>
+                              <span
+                                  style={{
+                                      fontSize: 14,
+                                      color: 'var(--color-text-muted)',
+                                  }}
+                              >
+                                  Зберігайте типові тренування в бібліотеці, щоб
+                                  швидко додавати їх у плани або готувати для
+                                  годинника.
+                              </span>
+                          </div>
+                      </div>
+                      <div
+                          style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 10,
+                          }}
+                      >
+                          <IconDeviceWatch
+                              size={18}
+                              style={{ flexShrink: 0, marginTop: 2 }}
+                          />
+                          <div>
+                              <strong style={{ display: 'block', marginBottom: 2 }}>
+                                  Синхронізація на годинник як дія
+                              </strong>
+                              <span
+                                  style={{
+                                      fontSize: 14,
+                                      color: 'var(--color-text-muted)',
+                                  }}
+                              >
+                                  Якщо тренування потрібне один раз, створіть його
+                                  звідси і одразу відправте в Intervals.icu або
+                                  завантажте `.fit` для Garmin.
+                              </span>
+                          </div>
                       </div>
                   </div>
-                  <div
-                      style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 10,
-                      }}
-                  >
-                      <IconDeviceWatch
-                          size={18}
-                          style={{ flexShrink: 0, marginTop: 2 }}
-                      />
-                      <div>
-                          <strong style={{ display: 'block', marginBottom: 2 }}>
-                              Синхронізація на годинник як дія
-                          </strong>
-                          <span
-                              style={{
-                                  fontSize: 14,
-                                  color: 'var(--color-text-muted)',
-                              }}
-                          >
-                              Якщо тренування потрібне один раз, створіть його
-                              звідси і одразу відправте в Intervals.icu або
-                              завантажте `.fit` для Garmin.
-                          </span>
-                      </div>
-                  </div>
-              </div>
+              )}
           </div>
 
           <div
@@ -308,29 +337,6 @@ export default function TemplatesPage() {
                           ? 'У вас ще немає шаблонів.'
                           : 'Шаблонів не знайдено.'}
                   </p>
-                  <div
-                      style={{
-                          display: 'flex',
-                          gap: 8,
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                      }}
-                  >
-                      <button
-                          className='btn-primary'
-                          onClick={() =>
-                              navigate('/watch-workouts/new?saveAsTemplate=1')
-                          }
-                      >
-                          Створити шаблон
-                      </button>
-                      <button
-                          className='btn-secondary'
-                          onClick={() => navigate('/watch-workouts/new')}
-                      >
-                          Разове для годинника
-                      </button>
-                  </div>
               </div>
           ) : (
               <div
@@ -432,16 +438,6 @@ export default function TemplatesPage() {
                   ))}
               </div>
           )}
-
-          <ActionIcon
-              className='fab'
-              radius='xl'
-              size={56}
-              onClick={() => navigate('/watch-workouts/new?saveAsTemplate=1')}
-              aria-label='Створити шаблон'
-          >
-              <IconPlus size={24} />
-          </ActionIcon>
       </div>
   );
 }

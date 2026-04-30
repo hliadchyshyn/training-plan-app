@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Modal, Stack, Text, Button, Group, Divider } from '@mantine/core'
 import { IconDeviceWatch, IconCopy, IconCalendar } from '@tabler/icons-react'
 import { api } from '../api/client.js'
+import { useAuthStore } from '../store/auth.js'
 
 interface Props {
   templateId: string
@@ -15,6 +16,8 @@ interface Props {
 export default function UseTemplateModal({ templateId, templateName, opened, onClose }: Props) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const userRole = useAuthStore((s) => s.user?.role)
+  const isTrainer = userRole === 'TRAINER' || userRole === 'ADMIN'
   const [error, setError] = useState('')
   const [calDate, setCalDate] = useState(() => new Date().toISOString().slice(0, 10))
 
@@ -31,9 +34,13 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
   const toCalendarMutation = useMutation({
     mutationFn: () => api.post('/templates/apply/calendar', { templateId, date: calDate }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['week'] })
+      if (isTrainer) {
+        queryClient.invalidateQueries({ queryKey: ['trainer-group-plans'] })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['week'] })
+      }
       onClose()
-      navigate('/')
+      navigate(isTrainer ? '/trainer' : '/')
     },
     onError: () => setError('Помилка планування тренування'),
   })
@@ -65,7 +72,7 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
 
         <div style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 8, padding: '10px 12px' }}>
           <Text size="sm" fw={500} mb={8} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <IconCalendar size={15} /> Додати в мій календар
+            <IconCalendar size={15} /> {isTrainer ? 'Створити груповий план з шаблону' : 'Додати в мій календар'}
           </Text>
           <Group gap={8} align="flex-end">
             <input
@@ -81,7 +88,7 @@ export default function UseTemplateModal({ templateId, templateName, opened, onC
               loading={toCalendarMutation.isPending}
               disabled={isPending}
             >
-              Додати
+              {isTrainer ? 'Створити груповий план' : 'Додати'}
             </Button>
           </Group>
         </div>
