@@ -21,6 +21,15 @@ import logoSvg from '../assets/logo.svg'
 const COLLAPSED_WIDTH = 60
 const EXPANDED_WIDTH = 220
 
+type NavItemConfig = {
+  to: string
+  label: string
+  mobileLabel?: string
+  icon: React.ReactNode
+  active: boolean
+  show: boolean
+}
+
 export function Layout() {
   const { user } = useAuthStore()
   const [collapsed, setCollapsed] = useState(false)
@@ -30,10 +39,11 @@ export function Layout() {
   const isAdmin = user?.role === 'ADMIN'
   const showAthleteCalendar = !isTrainer
 
-  const navItems = [
+  const navItems: NavItemConfig[] = [
     {
       to: '/',
       label: 'Календар',
+      mobileLabel: 'Календар',
       icon: <IconCalendar size={20} />,
       active: pathname === '/',
       show: showAthleteCalendar,
@@ -41,6 +51,7 @@ export function Layout() {
     {
       to: '/templates',
       label: 'Шаблони',
+      mobileLabel: 'Шаблони',
       icon: <IconBooks size={20} />,
       active: pathname.startsWith('/templates') || pathname.startsWith('/watch-workouts'),
       show: true,
@@ -48,6 +59,7 @@ export function Layout() {
     {
       to: '/trainer',
       label: 'Плани тренера',
+      mobileLabel: 'Плани',
       icon: <IconChartBar size={20} />,
       active: pathname === '/trainer',
       show: isTrainer,
@@ -55,6 +67,7 @@ export function Layout() {
     {
       to: '/trainer/athletes',
       label: 'Спортсмени',
+      mobileLabel: 'Спортсмени',
       icon: <IconUsers size={20} />,
       active: pathname.startsWith('/trainer/athletes'),
       show: isTrainer,
@@ -62,6 +75,7 @@ export function Layout() {
     {
       to: '/help',
       label: 'Як це працює',
+      mobileLabel: 'Довідка',
       icon: <IconHelpCircle size={20} />,
       active: pathname.startsWith('/help'),
       show: true,
@@ -69,6 +83,7 @@ export function Layout() {
     {
       to: '/admin',
       label: 'Адмін',
+      mobileLabel: 'Адмін',
       icon: <IconShield size={20} />,
       active: pathname.startsWith('/admin'),
       show: isAdmin,
@@ -161,7 +176,7 @@ export function Layout() {
 
           <Stack gap={2} style={{ flex: 1, padding: collapsed ? '0 0.375rem' : '0 0.5rem' }}>
             {navItems.filter((n) => n.show).map((n) => (
-              <NavItem key={n.to} {...n} />
+              <NavItem key={n.to} to={n.to} label={n.label} icon={n.icon} active={n.active} />
             ))}
           </Stack>
 
@@ -216,10 +231,21 @@ export function Layout() {
               fontSize: '0.625rem',
               fontWeight: n.active ? 600 : 400,
               minHeight: 56,
+              minWidth: 0,
             }}
           >
             {n.icon}
-            <span>{n.label}</span>
+            <span
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {n.mobileLabel ?? n.label}
+            </span>
           </Link>
         ))}
         <Link
@@ -237,10 +263,21 @@ export function Layout() {
             fontSize: '0.625rem',
             fontWeight: pathname === '/profile' ? 600 : 400,
             minHeight: 56,
+            minWidth: 0,
           }}
         >
           <IconUser size={20} />
-          <span>Профіль</span>
+          <span
+            style={{
+              display: 'block',
+              maxWidth: '100%',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            Профіль
+          </span>
         </Link>
       </Box>
     </>
