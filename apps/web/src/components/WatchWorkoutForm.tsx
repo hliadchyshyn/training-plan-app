@@ -16,7 +16,8 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { WatchWorkoutStep, WatchSport } from '@training-plan/shared'
+import type { WatchWorkoutStep } from '@training-plan/shared'
+export { SPORT_OPTIONS } from '../utils/watchWorkout.js'
 
 /** "4:30" → 270 seconds. Returns 0 if invalid. */
 function paceToSec(str: string): number {
@@ -34,12 +35,6 @@ function secToPace(sec: number | undefined): string {
 }
 
 export type DraftStep = Partial<WatchWorkoutStep> & { type: WatchWorkoutStep['type']; _id: string }
-
-export const SPORT_OPTIONS: { value: WatchSport; label: string }[] = [
-  { value: 'RUNNING', label: 'Біг' },
-  { value: 'CYCLING', label: 'Велосипед' },
-  { value: 'SWIMMING', label: 'Плавання' },
-]
 
 export const STEP_TYPE_OPTIONS: { value: WatchWorkoutStep['type']; label: string }[] = [
   { value: 'WARMUP', label: 'Розминка' },

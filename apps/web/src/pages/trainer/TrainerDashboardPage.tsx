@@ -1,28 +1,78 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ActionIcon } from '@mantine/core'
 import { IconPlus } from '@tabler/icons-react'
 import { api } from '../../api/client.js'
-import { formatDate, formatWeekRange } from '../../utils/date.js'
+import { formatDate, formatWeekRange, toLocalDateStr } from '../../utils/date.js'
 
 const LIMIT = 50
-const todayStr = new Date().toISOString().split('T')[0]
-const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0)
-
-const sunOffset = (7 - todayDate.getDay()) % 7
-const thisWeekSun = new Date(todayDate); thisWeekSun.setDate(todayDate.getDate() + sunOffset)
-const nextWeekSun = new Date(thisWeekSun); nextWeekSun.setDate(thisWeekSun.getDate() + 7)
-const thisMondayMs = todayDate.getTime() - ((todayDate.getDay() + 6) % 7) * 86400000
+const MS_PER_DAY = 86400000
+const MS_PER_WEEK = 7 * MS_PER_DAY
 
 const UPCOMING_ORDER = ['Сьогодні', 'Цього тижня', 'Наступного тижня', 'Пізніше']
 const IND_UPCOMING_ORDER = ['Цього тижня', 'Наступного тижня', 'Пізніше']
+const SELECT_STYLE = {
+  padding: '0.25rem 0.5rem',
+  borderRadius: 'var(--radius)',
+  border: '1px solid var(--color-border)',
+  fontSize: '0.8125rem',
+}
 
-function getUpcomingSection(dateStr: string): string {
+type MainTab = 'group' | 'individual'
+type TimeTab = 'upcoming' | 'past'
+type SectionGroup<T> = { section: string; items: T[] }
+
+type DateContext = {
+  todayDate: Date
+  todayStr: string
+  thisWeekSun: Date
+  nextWeekSun: Date
+  thisMondayMs: number
+}
+
+type GroupPlan = {
+  id: string
+  date: string
+  title: string | null
+  exerciseGroups: Array<{ id: string }>
+  team?: { name: string } | null
+}
+
+type IndividualPlan = {
+  id: string
+  weekStart: string
+  athlete: { name: string }
+  days: Array<{ sessions: Array<{ feedback: { status: string } | null }> }>
+}
+
+type AthleteOption = { id: string; name: string }
+
+function createDateContext(now = new Date()): DateContext {
+  const todayDate = new Date(now)
+  todayDate.setHours(0, 0, 0, 0)
+
+  const sunOffset = (7 - todayDate.getDay()) % 7
+  const thisWeekSun = new Date(todayDate)
+  thisWeekSun.setDate(todayDate.getDate() + sunOffset)
+
+  const nextWeekSun = new Date(thisWeekSun)
+  nextWeekSun.setDate(thisWeekSun.getDate() + 7)
+
+  return {
+    todayDate,
+    todayStr: toLocalDateStr(todayDate),
+    thisWeekSun,
+    nextWeekSun,
+    thisMondayMs: todayDate.getTime() - ((todayDate.getDay() + 6) % 7) * MS_PER_DAY,
+  }
+}
+
+function getUpcomingSection(dateStr: string, context: DateContext): string {
   const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
-  if (d.getTime() === todayDate.getTime()) return 'Сьогодні'
-  if (d <= thisWeekSun) return 'Цього тижня'
-  if (d <= nextWeekSun) return 'Наступного тижня'
+  if (d.getTime() === context.todayDate.getTime()) return 'Сьогодні'
+  if (d <= context.thisWeekSun) return 'Цього тижня'
+  if (d <= context.nextWeekSun) return 'Наступного тижня'
   return 'Пізніше'
 }
 
@@ -30,15 +80,15 @@ function getPastSection(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })
 }
 
-function getUpcomingIndSection(weekStart: string): string {
+function getUpcomingIndSection(weekStart: string, context: DateContext): string {
   const ws = new Date(weekStart); ws.setHours(0, 0, 0, 0)
-  const weeksAhead = Math.round((ws.getTime() - thisMondayMs) / (7 * 86400000))
+  const weeksAhead = Math.round((ws.getTime() - context.thisMondayMs) / MS_PER_WEEK)
   if (weeksAhead === 0) return 'Цього тижня'
   if (weeksAhead === 1) return 'Наступного тижня'
   return 'Пізніше'
 }
 
-function groupBySection<T>(items: T[], getSection: (item: T) => string, order?: string[]): Array<{ section: string; items: T[] }> {
+function groupBySection<T>(items: T[], getSection: (item: T) => string, order?: string[]): SectionGroup<T>[] {
   const map = new Map<string, T[]>()
   for (const item of items) {
     const s = getSection(item)
@@ -55,8 +105,42 @@ function groupBySection<T>(items: T[], getSection: (item: T) => string, order?: 
   return result
 }
 
-type MainTab = 'group' | 'individual'
-type TimeTab = 'upcoming' | 'past'
+function buildMonthOptions(now = new Date()) {
+  return Array.from({ length: 13 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 6 + i, 1)
+    return {
+      val: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      label: d.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }),
+    }
+  })
+}
+
+function getFeedbackSummary(plan: IndividualPlan) {
+  const totalDays = plan.days.length
+  const daysWithFeedback = plan.days.filter((d) => d.sessions[0]?.feedback).length
+  const completedDays = plan.days.filter((d) => d.sessions[0]?.feedback?.status === 'COMPLETED').length
+
+  return { totalDays, daysWithFeedback, completedDays }
+}
+
+function useTimeTab(paramName: string): [TimeTab, (value: TimeTab) => void] {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paramValue = searchParams.get(paramName)
+  const value: TimeTab = paramValue === 'past' || paramValue === 'upcoming' ? paramValue : 'upcoming'
+  const setValue = (nextValue: TimeTab) => {
+    setSearchParams((p) => {
+      const next = new URLSearchParams(p)
+      next.set(paramName, nextValue)
+      return next
+    }, { replace: true })
+  }
+
+  return [value, setValue]
+}
+
+function readMainTab(value: string | null): MainTab {
+  return value === 'individual' ? 'individual' : 'group'
+}
 
 function TabBar({ tabs, active, onChange }: { tabs: { value: string; label: string }[]; active: string; onChange: (v: string) => void }) {
   return (
@@ -156,14 +240,84 @@ function PanelShell({ createHref, createLabel, timeValue, onTimeChange, filters,
   )
 }
 
+function HoverLink({ to, today, compact, children }: { to: string; today?: boolean; compact?: boolean; children: ReactNode }) {
+  const defaultBackground = today ? 'var(--color-today-bg)' : 'transparent'
+  const hoverBackground = today ? 'var(--color-today-bg-hover)' : 'var(--mantine-color-gray-0)'
+
+  return (
+    <Link
+      to={to}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.625rem',
+        padding: compact ? '0.625rem 0.5rem' : '0.75rem 0.5rem',
+        borderBottom: '1px solid var(--color-border)',
+        textDecoration: 'none',
+        color: 'var(--color-text)',
+        background: defaultBackground,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = hoverBackground }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = defaultBackground }}
+    >
+      {children}
+    </Link>
+  )
+}
+
+function GroupPlanRow({ plan, todayStr }: { plan: GroupPlan; todayStr: string }) {
+  const isToday = plan.date.split('T')[0] === todayStr
+
+  return (
+    <HoverLink to={`/trainer/feedback/${plan.id}`} today={isToday} compact>
+      <span style={{ width: 68, flexShrink: 0, fontSize: '0.8125rem', color: isToday ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: isToday ? 600 : 400 }}>
+        {formatDate(plan.date)}
+      </span>
+      <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {plan.title ?? 'Групове тренування'}
+        {plan.team?.name && <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: '0.375rem' }}>— {plan.team.name}</span>}
+      </span>
+      {plan.exerciseGroups.length > 0 && (
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>{plan.exerciseGroups.length} гр.</span>
+      )}
+    </HoverLink>
+  )
+}
+
+function IndividualPlanRow({ plan }: { plan: IndividualPlan }) {
+  const { totalDays, completedDays, daysWithFeedback } = getFeedbackSummary(plan)
+
+  return (
+    <HoverLink to={`/trainer/plans/individual/${plan.id}/edit`}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.125rem' }}>{plan.athlete.name}</div>
+        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{formatWeekRange(plan.weekStart)}</div>
+      </div>
+      <div style={{ flexShrink: 0, textAlign: 'right' }}>
+        {daysWithFeedback > 0 ? (
+          <>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: completedDays > 0 ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+              {completedDays}/{totalDays} дн.
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>відгуків {daysWithFeedback}</div>
+          </>
+        ) : (
+          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{totalDays} дн.</span>
+        )}
+      </div>
+    </HoverLink>
+  )
+}
+
 function GroupPlansPanel() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const timeTab = (searchParams.get('gtime') as TimeTab) ?? 'upcoming'
+  const [timeTab, setTimeTab] = useTimeTab('gtime')
   const [month, setMonth] = useState('')
   const [page, setPage] = useState(1)
+  const dateContext = useMemo(() => createDateContext(), [])
+  const monthOptions = useMemo(() => buildMonthOptions(), [])
 
   const setTimeReset = (t: TimeTab) => {
-    setSearchParams((p) => { const n = new URLSearchParams(p); n.set('gtime', t); return n }, { replace: true })
+    setTimeTab(t)
     setPage(1)
   }
 
@@ -172,24 +326,12 @@ function GroupPlansPanel() {
     queryFn: () => api.get('/plans', { params: { tab: timeTab, ...(month && { month }), groupPage: page, limit: LIMIT } }).then((r) => r.data),
   })
 
-  type GroupPlan = { id: string; date: string; title: string | null; exerciseGroups: Array<{ id: string }>; team?: { name: string } | null }
   const plans: GroupPlan[] = data?.groupPlans?.data ?? []
   const totalPages: number = data?.groupPlans?.totalPages ?? 1
 
-  const monthOptions = Array.from({ length: 13 }, (_, i) => {
-    const now = new Date()
-    const d = new Date(now.getFullYear(), now.getMonth() - 6 + i, 1)
-    return {
-      val: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      label: d.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' }),
-    }
-  })
-
   const grouped = timeTab === 'upcoming'
-    ? groupBySection(plans, (p) => getUpcomingSection(p.date), UPCOMING_ORDER)
+    ? groupBySection(plans, (p) => getUpcomingSection(p.date, dateContext), UPCOMING_ORDER)
     : groupBySection(plans, (p) => getPastSection(p.date))
-
-  const selectStyle = { padding: '0.25rem 0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', fontSize: '0.8125rem' }
 
   return (
     <PanelShell
@@ -198,7 +340,7 @@ function GroupPlansPanel() {
       isLoading={isLoading} isEmpty={plans.length === 0}
       page={page} totalPages={totalPages} onPageChange={setPage}
       filters={<>
-        <select value={month} onChange={(e) => { setMonth(e.target.value); setPage(1) }} style={selectStyle}>
+        <select value={month} onChange={(e) => { setMonth(e.target.value); setPage(1) }} style={SELECT_STYLE}>
           <option value="">Місяць</option>
           {monthOptions.map((o) => <option key={o.val} value={o.val}>{o.label}</option>)}
         </select>
@@ -211,29 +353,7 @@ function GroupPlansPanel() {
         <div key={section}>
           <SectionHeader label={section} />
           {items.map((plan) => {
-            const isToday = plan.date.split('T')[0] === todayStr
-            return (
-              <Link key={plan.id} to={`/trainer/feedback/${plan.id}`} style={{
-                display: 'flex', alignItems: 'center', gap: '0.625rem',
-                padding: '0.625rem 0.5rem', borderBottom: '1px solid var(--color-border)',
-                textDecoration: 'none', color: 'var(--color-text)',
-                background: isToday ? 'var(--color-today-bg)' : 'transparent',
-              }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = isToday ? 'var(--color-today-bg-hover)' : 'var(--mantine-color-gray-0)' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = isToday ? 'var(--color-today-bg)' : 'transparent' }}
-              >
-                <span style={{ width: 68, flexShrink: 0, fontSize: '0.8125rem', color: isToday ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: isToday ? 600 : 400 }}>
-                  {formatDate(plan.date)}
-                </span>
-                <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {plan.title ?? 'Групове тренування'}
-                  {plan.team?.name && <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: '0.375rem' }}>— {plan.team.name}</span>}
-                </span>
-                {plan.exerciseGroups.length > 0 && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>{plan.exerciseGroups.length} гр.</span>
-                )}
-              </Link>
-            )
+            return <GroupPlanRow key={plan.id} plan={plan} todayStr={dateContext.todayStr} />
           })}
         </div>
       ))}
@@ -242,75 +362,43 @@ function GroupPlansPanel() {
 }
 
 function IndividualPlansPanel() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const timeTab = (searchParams.get('itime') as TimeTab) ?? 'upcoming'
+  const [timeTab, setTimeTab] = useTimeTab('itime')
   const [athleteId, setAthleteId] = useState('')
   const [page, setPage] = useState(1)
+  const dateContext = useMemo(() => createDateContext(), [])
 
-  const { data: allAthletes } = useQuery({ queryKey: ['all-athletes'], queryFn: () => api.get('/teams/athletes').then((r) => r.data) })
+  const { data: allAthletes } = useQuery<AthleteOption[]>({ queryKey: ['all-athletes'], queryFn: () => api.get('/teams/athletes').then((r) => r.data) })
 
   const { data, isLoading } = useQuery({
     queryKey: ['trainer-ind-plans', timeTab, athleteId, page],
     queryFn: () => api.get('/plans', { params: { tab: timeTab, ...(athleteId && { athleteId }), indPage: page, limit: LIMIT } }).then((r) => r.data),
   })
 
-  type IndPlan = { id: string; weekStart: string; athlete: { name: string }; days: Array<{ sessions: Array<{ feedback: { status: string } | null }> }> }
-  const plans: IndPlan[] = data?.individualPlans?.data ?? []
+  const plans: IndividualPlan[] = data?.individualPlans?.data ?? []
   const totalPages: number = data?.individualPlans?.totalPages ?? 1
 
   const grouped = timeTab === 'upcoming'
-    ? groupBySection(plans, (p) => getUpcomingIndSection(p.weekStart), IND_UPCOMING_ORDER)
+    ? groupBySection(plans, (p) => getUpcomingIndSection(p.weekStart, dateContext), IND_UPCOMING_ORDER)
     : groupBySection(plans, (p) => getPastSection(p.weekStart))
 
   return (
     <PanelShell
       createHref="/trainer/plans/new/individual" createLabel="+ Індивідуальний план"
       timeValue={timeTab}
-      onTimeChange={(v) => { setSearchParams((p) => { const n = new URLSearchParams(p); n.set('itime', v); return n }, { replace: true }); setPage(1) }}
+      onTimeChange={(v) => { setTimeTab(v); setPage(1) }}
       isLoading={isLoading} isEmpty={plans.length === 0}
       page={page} totalPages={totalPages} onPageChange={setPage}
       filters={
-        <select value={athleteId} onChange={(e) => { setAthleteId(e.target.value); setPage(1) }} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', fontSize: '0.8125rem', maxWidth: 180 }}>
+        <select value={athleteId} onChange={(e) => { setAthleteId(e.target.value); setPage(1) }} style={{ ...SELECT_STYLE, maxWidth: 180 }}>
           <option value="">Всі спортсмени</option>
-          {(allAthletes ?? []).map((a: { id: string; name: string }) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {(allAthletes ?? []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       }
     >
       {grouped.map(({ section, items }) => (
         <div key={section}>
           <SectionHeader label={section} />
-          {items.map((plan) => {
-            const totalDays = plan.days.length
-            const completedDays = plan.days.filter((d) => d.sessions[0]?.feedback?.status === 'COMPLETED').length
-            const daysWithFeedback = plan.days.filter((d) => d.sessions[0]?.feedback).length
-            return (
-              <Link key={plan.id} to={`/trainer/plans/individual/${plan.id}/edit`} style={{
-                display: 'flex', alignItems: 'center', gap: '0.625rem',
-                padding: '0.75rem 0.5rem', borderBottom: '1px solid var(--color-border)',
-                textDecoration: 'none', color: 'var(--color-text)',
-              }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--mantine-color-gray-0)' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.125rem' }}>{plan.athlete.name}</div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{formatWeekRange(plan.weekStart)}</div>
-                </div>
-                <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  {daysWithFeedback > 0 ? (
-                    <>
-                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: completedDays > 0 ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-                        {completedDays}/{totalDays} дн.
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>відгуків {daysWithFeedback}</div>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{totalDays} дн.</span>
-                  )}
-                </div>
-              </Link>
-            )
-          })}
+          {items.map((plan) => <IndividualPlanRow key={plan.id} plan={plan} />)}
         </div>
       ))}
     </PanelShell>
@@ -319,7 +407,7 @@ function IndividualPlansPanel() {
 
 export function TrainerDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const mainTab = (searchParams.get('tab') as MainTab) ?? 'group'
+  const mainTab = readMainTab(searchParams.get('tab'))
   const navigate = useNavigate()
   const [showInfo, setShowInfo] = useState(false)
 

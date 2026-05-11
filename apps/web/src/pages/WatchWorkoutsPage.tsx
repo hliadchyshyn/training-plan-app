@@ -4,6 +4,7 @@ import { ActionIcon } from '@mantine/core'
 import { IconPlus, IconDeviceWatch } from '@tabler/icons-react'
 import { api } from '../api/client.js'
 import type { WatchSport, WatchWorkoutStep } from '@training-plan/shared'
+import { estimateWorkoutDurationSec, formatEstimatedDuration, SPORT_LABELS } from '../utils/watchWorkout.js'
 
 interface WatchWorkout {
   id: string
@@ -13,63 +14,6 @@ interface WatchWorkout {
   notes?: string
   sourceType?: string
   createdAt: string
-}
-
-const DEFAULT_SEC_PER_KM: Record<WatchSport, number> = {
-  RUNNING: 330,
-  CYCLING: 120,
-  SWIMMING: 600,
-}
-
-function estimateDurationSec(steps: WatchWorkoutStep[], sport: WatchSport): number {
-  let total = 0
-  const stack: { count: number; sub: number }[] = []
-
-  for (const step of steps) {
-    if (step.type === 'REPEAT_BEGIN') {
-      stack.push({ count: step.repeatCount ?? 4, sub: 0 })
-      continue
-    }
-    if (step.type === 'REPEAT_END') {
-      const frame = stack.pop()
-      if (frame) {
-        const contribution = frame.sub * frame.count
-        if (stack.length > 0) stack[stack.length - 1].sub += contribution
-        else total += contribution
-      }
-      continue
-    }
-
-    let dur = 0
-    if (step.durationUnit === 'TIME' && step.durationValue) {
-      dur = step.durationValue
-    } else if (step.durationUnit === 'DISTANCE' && step.durationValue) {
-      const pace = step.targetFrom && step.targetTo
-        ? (step.targetFrom + step.targetTo) / 2
-        : (step.targetFrom ?? DEFAULT_SEC_PER_KM[sport])
-      dur = (step.durationValue / 1000) * pace
-    }
-
-    if (stack.length > 0) stack[stack.length - 1].sub += dur
-    else total += dur
-  }
-
-  return Math.round(total)
-}
-
-function formatDuration(sec: number): string {
-  if (sec <= 0) return ''
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  if (h > 0) return `~${h}г ${m > 0 ? `${m}хв` : ''}`
-  if (m > 0) return `~${m} хв`
-  return '<1 хв'
-}
-
-const SPORT_LABEL: Record<WatchSport, string> = {
-  RUNNING: 'Біг',
-  CYCLING: 'Велосипед',
-  SWIMMING: 'Плавання',
 }
 
 export default function WatchWorkoutsPage() {
@@ -121,10 +65,10 @@ export default function WatchWorkoutsPage() {
                 <div>
                   <strong style={{ fontSize: '1rem' }}>{w.name}</strong>
                   <div style={{ marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span className="badge">{SPORT_LABEL[w.sport]}</span>
+                    <span className="badge">{SPORT_LABELS[w.sport]}</span>
                     <span className="badge">{w.steps.length} кроків</span>
                     {(() => {
-                      const t = formatDuration(estimateDurationSec(w.steps, w.sport))
+                      const t = formatEstimatedDuration(estimateWorkoutDurationSec(w.steps, w.sport))
                       return t ? <span className="badge">{t}</span> : null
                     })()}
                     {w.sourceType && w.sourceType !== 'MANUAL' && (

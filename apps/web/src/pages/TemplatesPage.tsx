@@ -4,6 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import { IconBooks, IconDeviceWatch } from '@tabler/icons-react';
 import { api } from '../api/client.js'
 import type { WatchSport, WatchWorkoutStep } from '@training-plan/shared'
+import {
+  estimateWorkoutDurationSec,
+  formatEstimatedDuration,
+  SPORT_LABELS,
+  SPORT_OPTIONS as BASE_SPORT_OPTIONS,
+} from '../utils/watchWorkout.js'
 
 interface Template {
   id: string
@@ -17,69 +23,10 @@ interface Template {
   createdAt: string
 }
 
-const SPORT_LABEL: Record<WatchSport, string> = {
-  RUNNING: 'Біг',
-  CYCLING: 'Велосипед',
-  SWIMMING: 'Плавання',
-}
-
 const SPORT_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Всі види' },
-  { value: 'RUNNING', label: 'Біг' },
-  { value: 'CYCLING', label: 'Велосипед' },
-  { value: 'SWIMMING', label: 'Плавання' },
+  ...BASE_SPORT_OPTIONS,
 ]
-
-function estimateDurationSec(steps: WatchWorkoutStep[], sport: WatchSport): number {
-  const defaultSecPerKm: Record<WatchSport, number> = {
-      RUNNING: 330,
-      CYCLING: 120,
-      SWIMMING: 600,
-  };
-  let total = 0
-  const stack: { count: number; sub: number }[] = []
-
-  for (const step of steps) {
-    if (step.type === 'REPEAT_BEGIN') {
-        stack.push({ count: step.repeatCount ?? 4, sub: 0 });
-        continue;
-    }
-
-    if (step.type === 'REPEAT_END') {
-      const frame = stack.pop();
-      if (frame) {
-          const contribution = frame.sub * frame.count;
-          if (stack.length > 0) stack[stack.length - 1].sub += contribution;
-          else total += contribution;
-      }
-      continue
-    }
-
-    let duration = 0;
-    if (step.durationUnit === 'TIME' && step.durationValue) {
-        duration = step.durationValue;
-    } else if (step.durationUnit === 'DISTANCE' && step.durationValue) {
-        const pace =
-            step.targetFrom && step.targetTo
-                ? (step.targetFrom + step.targetTo) / 2
-                : (step.targetFrom ?? defaultSecPerKm[sport]);
-        duration = (step.durationValue / 1000) * pace;
-    }
-
-    if (stack.length > 0) stack[stack.length - 1].sub += duration;
-    else total += duration;
-  }
-
-  return Math.round(total)
-}
-
-function formatDuration(sec: number): string {
-  if (sec <= 0) return ''
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h > 0) return `~${h}г ${m > 0 ? `${m} хв` : ''}`;
-  return m > 0 ? `~${m} хв` : '<1 хв'
-}
 
 export default function TemplatesPage() {
   const navigate = useNavigate()
@@ -391,14 +338,14 @@ export default function TemplatesPage() {
                                       }}
                                   >
                                       <span className='badge'>
-                                          {SPORT_LABEL[template.sport]}
+                                          {SPORT_LABELS[template.sport]}
                                       </span>
                                       <span className='badge'>
                                           {template.steps.length} кроків
                                       </span>
                                       {(() => {
-                                          const duration = formatDuration(
-                                              estimateDurationSec(
+                                          const duration = formatEstimatedDuration(
+                                              estimateWorkoutDurationSec(
                                                   template.steps,
                                                   template.sport,
                                               ),
