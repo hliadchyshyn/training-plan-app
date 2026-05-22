@@ -71,7 +71,7 @@ function buildDefaultPrisma() {
       findMany: vi.fn().mockResolvedValue([]),
     },
     athleteSession: {
-      create: vi.fn().mockResolvedValue({ id: 'session-new-1' }),
+      upsert: vi.fn().mockResolvedValue({ id: 'session-new-1' }),
     },
     sessionFeedback: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -106,7 +106,7 @@ describe('matchActivities', () => {
       const result = await matchActivities(ATHLETE, prisma)
 
       expect(result).toBe(0)
-      expect(prisma.athleteSession.create).not.toHaveBeenCalled()
+      expect(prisma.athleteSession.upsert).not.toHaveBeenCalled()
     })
   })
 
@@ -125,9 +125,9 @@ describe('matchActivities', () => {
       const result = await matchActivities(ATHLETE, prisma)
 
       expect(result).toBe(1)
-      expect(prisma.athleteSession.create).toHaveBeenCalledOnce()
-      expect(prisma.athleteSession.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ athleteId: ATHLETE, planId: 'plan-group-1' }) }),
+      expect(prisma.athleteSession.upsert).toHaveBeenCalledOnce()
+      expect(prisma.athleteSession.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ athleteId: ATHLETE, planId: 'plan-group-1' }) }),
       )
       expect(prisma.sessionFeedback.create).toHaveBeenCalledOnce()
       expect(prisma.stravaActivity.update).toHaveBeenCalledOnce()
@@ -147,7 +147,7 @@ describe('matchActivities', () => {
 
       await matchActivities(ATHLETE, prisma)
 
-      expect(prisma.athleteSession.create).not.toHaveBeenCalled()
+      expect(prisma.athleteSession.upsert).not.toHaveBeenCalled()
       expect(prisma.stravaActivity.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ sessionId: 'existing-session-1' }),
@@ -192,8 +192,8 @@ describe('matchActivities', () => {
       const result = await matchActivities(ATHLETE, prisma)
 
       expect(result).toBe(1)
-      expect(prisma.athleteSession.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ individualPlanDayId: 'day-1' }) }),
+      expect(prisma.athleteSession.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ individualPlanDayId: 'day-1' }) }),
       )
     })
 
@@ -239,8 +239,8 @@ describe('matchActivities', () => {
       await matchActivities(ATHLETE, prisma)
 
       // Session should be created for individual plan day, not group plan
-      expect(prisma.athleteSession.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ individualPlanDayId: 'day-1' }) }),
+      expect(prisma.athleteSession.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ individualPlanDayId: 'day-1' }) }),
       )
     })
 
@@ -449,7 +449,7 @@ describe('matchActivities', () => {
         },
         trainingPlan: { findMany: vi.fn().mockResolvedValue(plans) },
         athleteSession: {
-          create: vi.fn().mockImplementation(() => Promise.resolve({ id: `sess-${++sessIdx}` })),
+          upsert: vi.fn().mockImplementation(() => Promise.resolve({ id: `sess-${++sessIdx}` })),
         },
         sessionFeedback: {
           findMany: vi.fn().mockResolvedValue([]),
