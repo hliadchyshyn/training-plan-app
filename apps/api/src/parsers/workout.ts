@@ -18,7 +18,11 @@ export function parseWorkout(text: string): ParsedWorkout | null {
 }
 
 function parseBlocks(text: string): WorkoutBlock[] {
-  const blocks: WorkoutBlock[] = []
+  // Collect all positional matches so blocks are sorted by appearance in text,
+  // not by which regex ran first. Without this, interval blocks (e.g. "3*120м")
+  // were always placed before plain-km blocks (e.g. "4км" warmup) even when the
+  // warmup appeared earlier in the text — causing wrong repeat structure in FIT.
+  const positional: Array<{ start: number; block: WorkoutBlock }> = []
   const matchedRanges: Array<[number, number]> = []
 
   // Match patterns like "4*800м", "2*600м", "4x400m", "4–6 × 100m"
@@ -40,25 +44,7 @@ function parseBlocks(text: string): WorkoutBlock[] {
       block.rest = `${restMatch[1]} ${restMatch[2].replace(' відпочинку', '')}`
     }
 
-    blocks.push(block)
-  }
-
-  // Match series count "4 серії" or "3-4 серії"
-  const seriesMatch = text.match(/(\d+)(?:-\d+)?\s+серії?/i)
-  if (seriesMatch && blocks.length > 0) {
-    blocks[0].series = parseInt(seriesMatch[1])
-  }
-
-  // Match rest between series "між серіями X хв"
-  const seriesRestMatch = text.match(/між серіями\s+(\d+(?:-\d+)?)\s*(хв|хвилин|min)/i)
-  if (seriesRestMatch && blocks.length > 0) {
-    blocks[0].seriesRest = `${seriesRestMatch[1]} ${seriesRestMatch[2]}`
-  }
-
-  // Match intensity "85%", "70%", "60%"
-  const intensityMatch = text.match(/(\d+(?:-\d+)?)\s*%/)
-  if (intensityMatch && blocks.length > 0) {
-    blocks[blocks.length - 1].intensity = `${intensityMatch[1]}%`
+    positional.push({ start: match.index, block })
   }
 
   // Match plain km distance blocks not already captured by interval pattern
@@ -67,8 +53,31 @@ function parseBlocks(text: string): WorkoutBlock[] {
   while ((match = plainKmPattern.exec(text)) !== null) {
     const alreadyMatched = matchedRanges.some(([s, e]) => match!.index >= s && match!.index < e)
     if (!alreadyMatched) {
-      blocks.push({ distance: `${parseFloat(match[1])}km` })
+      positional.push({ start: match.index, block: { distance: `${parseFloat(match[1])}km` } })
     }
+  }
+
+  // Sort by position in text to preserve the order blocks appear
+  positional.sort((a, b) => a.start - b.start)
+  const blocks = positional.map((p) => p.block)
+
+  // Match series count "4 серії" or "3-4 серії" — attach to first interval block
+  const firstIntervalIdx = blocks.findIndex((b) => b.sets !== undefined)
+  const seriesMatch = text.match(/(\d+)(?:-\d+)?\s+серії?/i)
+  if (seriesMatch && firstIntervalIdx !== -1) {
+    blocks[firstIntervalIdx].series = parseInt(seriesMatch[1])
+  }
+
+  // Match rest between series "між серіями X хв"
+  const seriesRestMatch = text.match(/між серіями\s+(\d+(?:-\d+)?)\s*(хв|хвилин|min)/i)
+  if (seriesRestMatch && firstIntervalIdx !== -1) {
+    blocks[firstIntervalIdx].seriesRest = `${seriesRestMatch[1]} ${seriesRestMatch[2]}`
+  }
+
+  // Match intensity "85%", "70%", "60%"
+  const intensityMatch = text.match(/(\d+(?:-\d+)?)\s*%/)
+  if (intensityMatch && blocks.length > 0) {
+    blocks[blocks.length - 1].intensity = `${intensityMatch[1]}%`
   }
 
   // Match duration runs without sets*distance pattern (e.g. "25 хв бігу", "10 хв розминочний біг")

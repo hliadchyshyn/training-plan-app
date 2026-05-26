@@ -253,6 +253,107 @@ describe('parsedDataToSteps', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // Warmup / cooldown placement — regression for the Intervals.icu ordering bug.
+  // When a workout has [warmup km, intervals, cooldown km], the warmup and
+  // cooldown must be OUTSIDE the repeat block, not inside.
+  // ---------------------------------------------------------------------------
+
+  describe('warmup and cooldown outside repeat block', () => {
+    it('warmup step comes before REPEAT_BEGIN', () => {
+      const steps = parsedDataToSteps(workout([
+        { distance: '4km' },          // warmup
+        { distance: '120м', sets: 3 }, // intervals
+        { distance: '2km' },          // cooldown
+      ]))
+      const repeatBeginIdx = steps.findIndex((s) => s.type === 'REPEAT_BEGIN')
+      expect(repeatBeginIdx).toBeGreaterThan(0)
+      expect(steps[0].type).toBe('ACTIVE')
+      expect(steps[0].durationValue).toBe(4000)
+    })
+
+    it('cooldown step comes after REPEAT_END', () => {
+      const steps = parsedDataToSteps(workout([
+        { distance: '4km' },
+        { distance: '120м', sets: 3 },
+        { distance: '2km' },
+      ]))
+      const repeatEndIdx = steps.findLastIndex((s) => s.type === 'REPEAT_END')
+      const lastStep = steps[steps.length - 1]
+      expect(lastStep.type).toBe('ACTIVE')
+      expect(lastStep.durationValue).toBe(2000)
+      expect(steps.indexOf(lastStep)).toBeGreaterThan(repeatEndIdx)
+    })
+
+    it('step order is: ACTIVE(warmup) → REPEAT_BEGIN → ACTIVE(interval) → REPEAT_END → ACTIVE(cooldown)', () => {
+      const steps = parsedDataToSteps(workout([
+        { distance: '4km' },
+        { distance: '120м', sets: 3 },
+        { distance: '2km' },
+      ]))
+      const types = steps.map((s) => s.type)
+      expect(types).toEqual(['ACTIVE', 'REPEAT_BEGIN', 'ACTIVE', 'REPEAT_END', 'ACTIVE'])
+    })
+
+    it('nested repeat (series × sets) leaves warmup and cooldown outside both repeats', () => {
+      const steps = parsedDataToSteps(workout([
+        { distance: '4km' },                              // warmup
+        { distance: '120м', sets: 5, series: 3, seriesRest: '3 хв' }, // 3×5×120m
+        { distance: '2km' },                              // cooldown
+      ]))
+      const types = steps.map((s) => s.type)
+      // warmup before everything
+      expect(types[0]).toBe('ACTIVE')
+      // outer repeat opens
+      expect(types[1]).toBe('REPEAT_BEGIN')
+      // last ACTIVE step is the cooldown, after all repeats
+      const lastRepeatEnd = types.lastIndexOf('REPEAT_END')
+      expect(types[lastRepeatEnd + 1]).toBe('RECOVERY') // seriesRest
+      expect(types[types.length - 1]).toBe('ACTIVE')    // cooldown
+      expect(steps[types.length - 1].durationValue).toBe(2000)
+    })
+
+    it('warmup only (no cooldown) — warmup is before the repeat', () => {
+      const steps = parsedDataToSteps(workout([
+        { distance: '3km' },
+        { distance: '400м', sets: 4 },
+      ]))
+      expect(steps[0].type).toBe('ACTIVE')
+      expect(steps[0].durationValue).toBe(3000)
+      expect(steps[1].type).toBe('REPEAT_BEGIN')
+    })
+
+    it('cooldown only (no warmup) — cooldown is after the repeat', () => {
+      const steps = parsedDataToSteps(workout([
+        { distance: '400м', sets: 4 },
+        { distance: '1km' },
+      ]))
+      expect(steps[0].type).toBe('REPEAT_BEGIN')
+      expect(steps[steps.length - 1].type).toBe('ACTIVE')
+      expect(steps[steps.length - 1].durationValue).toBe(1000)
+    })
+
+    it('multiple km blocks around a repeat are all placed correctly', () => {
+      // 2km warm → 5×200m → 1km jog → 3×400m → 2km cool
+      const steps = parsedDataToSteps(workout([
+        { distance: '2km' },
+        { distance: '200м', sets: 5 },
+        { distance: '1km' },
+        { distance: '400м', sets: 3 },
+        { distance: '2km' },
+      ]))
+      const types = steps.map((s) => s.type)
+      // First step is 2km warmup
+      expect(types[0]).toBe('ACTIVE')
+      expect(steps[0].durationValue).toBe(2000)
+      // Last step is 2km cooldown
+      expect(types[types.length - 1]).toBe('ACTIVE')
+      expect(steps[types.length - 1].durationValue).toBe(2000)
+      // Two repeat blocks exist
+      expect(types.filter((t) => t === 'REPEAT_BEGIN')).toHaveLength(2)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // Step name propagation
   // ---------------------------------------------------------------------------
 
