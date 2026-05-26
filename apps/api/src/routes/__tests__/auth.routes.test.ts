@@ -466,7 +466,7 @@ describe('PUT /api/auth/trainer', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/auth/trainer',
-      payload: { inviteCode: 'TEST01' },
+      payload: { inviteCode: 'TEST2A' },
     })
 
     expect(res.statusCode).toBe(401)
@@ -476,7 +476,7 @@ describe('PUT /api/auth/trainer', () => {
   it('updates athlete trainer by invite code', async () => {
     const findUnique = vi.fn()
       .mockResolvedValueOnce(makeUser({ role: 'ATHLETE' }))
-      .mockResolvedValueOnce(makeUser({ id: 'trainer-1', role: 'TRAINER', inviteCode: 'TEST01', name: 'Coach' }))
+      .mockResolvedValueOnce(makeUser({ id: 'trainer-1', role: 'TRAINER', inviteCode: 'TEST2A', name: 'Coach' }))
 
     const update = vi.fn().mockResolvedValue({
       trainer: { id: 'trainer-1', name: 'Coach' },
@@ -490,7 +490,7 @@ describe('PUT /api/auth/trainer', () => {
       method: 'PUT',
       url: '/api/auth/trainer',
       headers: { authorization: makeBearer(app) },
-      payload: { inviteCode: 'TEST01' },
+      payload: { inviteCode: 'TEST2A' },
     })
 
     expect(res.statusCode).toBe(200)
@@ -538,7 +538,7 @@ describe('PUT /api/auth/trainer', () => {
       method: 'PUT',
       url: '/api/auth/trainer',
       headers: { authorization: makeBearer(app, { sub: 'user-1', email: 'trainer@example.com', role: 'TRAINER' }) },
-      payload: { inviteCode: 'TEST01' },
+      payload: { inviteCode: 'TEST2A' },
     })
 
     expect(res.statusCode).toBe(403)

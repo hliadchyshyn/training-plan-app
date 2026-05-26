@@ -12,8 +12,16 @@ export function toLocalDateStr(d: Date): string {
 }
 
 export function getMondayOfWeek(dateStr: string): string {
-  const [y, mo, da] = dateStr.split('-').map(Number)
+  const normalizedDate = dateOnly(dateStr)
+  const [y, mo, da] = normalizedDate.split('-').map(Number)
   const d = new Date(y, mo - 1, da)
+  if (Number.isNaN(d.getTime())) {
+    const parsed = new Date(dateStr)
+    if (Number.isNaN(parsed.getTime())) return normalizedDate
+    const dow = parsed.getDay() === 0 ? 7 : parsed.getDay()
+    parsed.setDate(parsed.getDate() - dow + 1)
+    return toLocalDateStr(parsed)
+  }
   const dow = d.getDay() === 0 ? 7 : d.getDay()
   d.setDate(d.getDate() - dow + 1)
   return toLocalDateStr(d)
