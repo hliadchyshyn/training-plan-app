@@ -192,6 +192,17 @@ export default function TemplateDetailPage() {
                       {formatPace(step.targetFrom)}–{formatPace(step.targetTo)}/км
                     </span>
                   )}
+                  {step.targetUnit === 'PACE' && step.targetFrom && !step.targetTo && (
+                    <span style={{ marginLeft: 8 }}>{formatPace(step.targetFrom)}/км</span>
+                  )}
+                  {step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && step.targetTo && (
+                    <span style={{ marginLeft: 8 }}>
+                      {step.targetFrom}–{step.targetTo} уд/хв
+                    </span>
+                  )}
+                  {step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && !step.targetTo && (
+                    <span style={{ marginLeft: 8 }}>{step.targetFrom} уд/хв</span>
+                  )}
                 </div>
               </div>
             </div>

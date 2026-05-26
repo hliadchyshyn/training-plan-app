@@ -125,6 +125,9 @@ function SortableStepRow({
     }
   }, [step.targetUnit, step.targetFrom, step.targetTo])
 
+  const hrFrom = step.targetUnit === 'HEART_RATE_ZONE' ? (step.targetFrom ?? '') : ''
+  const hrTo = step.targetUnit === 'HEART_RATE_ZONE' ? (step.targetTo ?? '') : ''
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -212,13 +215,14 @@ function SortableStepRow({
           )}
 
           <div className="form-group" style={{ flex: '0 1 100px', margin: 0 }}>
-            <label style={{ fontSize: '0.75rem' }}>Темп</label>
+            <label style={{ fontSize: '0.75rem' }}>Ціль</label>
             <select
               value={step.targetUnit ?? 'OPEN'}
               onChange={(e) => set({ targetUnit: e.target.value as WatchWorkoutStep['targetUnit'], targetFrom: undefined, targetTo: undefined })}
             >
               <option value="OPEN">Без цілі</option>
               <option value="PACE">Темп</option>
+              <option value="HEART_RATE_ZONE">Пульс</option>
             </select>
           </div>
 
@@ -252,6 +256,33 @@ function SortableStepRow({
                   }}
                   placeholder="4:30"
                   maxLength={5}
+                />
+              </div>
+            </>
+          )}
+
+          {step.targetUnit === 'HEART_RATE_ZONE' && (
+            <>
+              <div className="form-group" style={{ flex: '0 1 80px', margin: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Від (уд/хв)</label>
+                <input
+                  type="number"
+                  min={40}
+                  max={220}
+                  value={hrFrom}
+                  onChange={(e) => set({ targetFrom: e.target.value === '' ? undefined : parseInt(e.target.value) || undefined })}
+                  placeholder="130"
+                />
+              </div>
+              <div className="form-group" style={{ flex: '0 1 80px', margin: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>До (уд/хв)</label>
+                <input
+                  type="number"
+                  min={40}
+                  max={220}
+                  value={hrTo}
+                  onChange={(e) => set({ targetTo: e.target.value === '' ? undefined : parseInt(e.target.value) || undefined })}
+                  placeholder="150"
                 />
               </div>
             </>

@@ -123,7 +123,16 @@ function WorkoutStepsList({ steps }: { steps: WatchWorkoutStep[] }) {
               <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                 {formatDuration(step.durationUnit, step.durationValue)}
                 {step.targetUnit === 'PACE' && step.targetFrom && step.targetTo && (
-                  <> · Темп: {formatPace(step.targetFrom)}-{formatPace(step.targetTo)} /км</>
+                  <> · Темп: {formatPace(step.targetFrom)}–{formatPace(step.targetTo)}/км</>
+                )}
+                {step.targetUnit === 'PACE' && step.targetFrom && !step.targetTo && (
+                  <> · Темп: {formatPace(step.targetFrom)}/км</>
+                )}
+                {step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && step.targetTo && (
+                  <> · Пульс: {step.targetFrom}–{step.targetTo} уд/хв</>
+                )}
+                {step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && !step.targetTo && (
+                  <> · Пульс: {step.targetFrom} уд/хв</>
                 )}
               </div>
             </div>

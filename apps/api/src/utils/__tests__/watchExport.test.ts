@@ -103,6 +103,31 @@ describe('stepsToFit', () => {
     })
   })
 
+  describe('heart rate target', () => {
+    it('encodes HEART_RATE_ZONE target step without throwing', () => {
+      const hrStep: WatchWorkoutStep = {
+        type: 'ACTIVE',
+        durationUnit: 'DISTANCE',
+        durationValue: 5000,
+        targetUnit: 'HEART_RATE_ZONE',
+        targetFrom: 130,
+        targetTo: 150,
+      }
+      expect(() => stepsToFit('HR Zone', 'RUNNING', [hrStep])).not.toThrow()
+    })
+
+    it('encodes single-value HEART_RATE_ZONE target without throwing', () => {
+      const hrStep: WatchWorkoutStep = {
+        type: 'ACTIVE',
+        durationUnit: 'TIME',
+        durationValue: 1800,
+        targetUnit: 'HEART_RATE_ZONE',
+        targetFrom: 140,
+      }
+      expect(() => stepsToFit('HR Single', 'RUNNING', [hrStep])).not.toThrow()
+    })
+  })
+
   describe('workout name truncation', () => {
     it('accepts a name longer than 16 chars (truncated internally)', () => {
       const longName = 'This is a very long workout name that exceeds Garmin limit'

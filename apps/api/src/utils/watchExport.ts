@@ -23,6 +23,7 @@ const DURATION_REPEAT_REPS = 6
 
 // wktStepTarget enum
 const TARGET_SPEED = 0
+const TARGET_HEART_RATE = 1
 const TARGET_OPEN = 2
 
 // intensity enum
@@ -126,26 +127,38 @@ function flattenToFitSteps(steps: WatchWorkoutStep[]): FitStep[] {
     let customLow = 0
     let customHigh = 0
 
-    let paceLabel = ''
+    let targetLabel = ''
     if (step.targetUnit === 'PACE' && step.targetFrom && step.targetTo) {
       targetType = TARGET_SPEED
       // targetFrom = faster pace (lower sec/km) → higher speed
       // targetTo = slower pace (higher sec/km) → lower speed
       customLow = paceToSpeedFit(step.targetTo)   // slower pace = lower speed bound
       customHigh = paceToSpeedFit(step.targetFrom) // faster pace = upper speed bound
-      paceLabel = ` ${formatPaceLabel(step.targetFrom)}-${formatPaceLabel(step.targetTo)}/km`
+      targetLabel = ` ${formatPaceLabel(step.targetFrom)}-${formatPaceLabel(step.targetTo)}/km`
     } else if (step.targetUnit === 'PACE' && step.targetFrom) {
       targetType = TARGET_SPEED
       customLow = paceToSpeedFit(step.targetFrom)
       customHigh = paceToSpeedFit(step.targetFrom)
-      paceLabel = ` ${formatPaceLabel(step.targetFrom)}/km`
+      targetLabel = ` ${formatPaceLabel(step.targetFrom)}/km`
+    } else if (step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && step.targetTo) {
+      targetType = TARGET_HEART_RATE
+      // FIT workoutHr encoding: BPM values must have +100 offset (value 100 = "bpmOffset" marker).
+      // Values 0-99 are interpreted as HR zones; 100+ = (BPM + 100).
+      customLow = step.targetFrom + 100
+      customHigh = step.targetTo + 100
+      targetLabel = ` ${step.targetFrom}-${step.targetTo}bpm`
+    } else if (step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom) {
+      targetType = TARGET_HEART_RATE
+      customLow = step.targetFrom + 100
+      customHigh = step.targetFrom + 100
+      targetLabel = ` ${step.targetFrom}bpm`
     }
 
-    // Embed pace in step name so ICU always shows it (ICU displays FIT speed targets
-    // as % of threshold when no threshold is configured, but always shows step name).
+    // Embed target in step name so ICU always shows it (ICU may display FIT targets
+    // differently depending on threshold configuration, but always shows step name).
     const stepName = step.name
-      ? `${step.name}${paceLabel}`
-      : paceLabel.trim() || undefined
+      ? `${step.name}${targetLabel}`
+      : targetLabel.trim() || undefined
 
     const idx = fitSteps.length
     fitSteps.push({

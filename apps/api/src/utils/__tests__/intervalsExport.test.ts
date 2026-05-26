@@ -172,4 +172,45 @@ describe('stepsToIntervalsMarkdown', () => {
       expect(out).toContain('4:00-4:30/km Pace')
     })
   })
+
+  describe('heart rate targets', () => {
+    it('renders HR range as "130-150bpm HR"', () => {
+      const hrStep: WatchWorkoutStep = {
+        type: 'ACTIVE',
+        durationUnit: 'DISTANCE',
+        durationValue: 5000,
+        targetUnit: 'HEART_RATE_ZONE',
+        targetFrom: 130,
+        targetTo: 150,
+      }
+      const out = stepsToIntervalsMarkdown([hrStep])
+      expect(out).toContain('130-150bpm HR')
+    })
+
+    it('renders single HR value as "140bpm HR"', () => {
+      const hrStep: WatchWorkoutStep = {
+        type: 'ACTIVE',
+        durationUnit: 'TIME',
+        durationValue: 1800,
+        targetUnit: 'HEART_RATE_ZONE',
+        targetFrom: 140,
+      }
+      const out = stepsToIntervalsMarkdown([hrStep])
+      expect(out).toContain('140bpm HR')
+    })
+
+    it('HR target overrides default zone label', () => {
+      const hrWarmup: WatchWorkoutStep = {
+        type: 'WARMUP',
+        durationUnit: 'DISTANCE',
+        durationValue: 2000,
+        targetUnit: 'HEART_RATE_ZONE',
+        targetFrom: 120,
+        targetTo: 135,
+      }
+      const out = stepsToIntervalsMarkdown([hrWarmup])
+      expect(out).toContain('120-135bpm HR')
+      expect(out).not.toContain('Z1')
+    })
+  })
 })

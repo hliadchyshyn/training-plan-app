@@ -41,6 +41,12 @@ function formatTarget(step: WatchWorkoutStep): string {
   if (step.targetUnit === 'PACE' && step.targetFrom) {
     return `${formatPace(step.targetFrom)}/км`
   }
+  if (step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && step.targetTo) {
+    return `${step.targetFrom}-${step.targetTo} уд/хв`
+  }
+  if (step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom) {
+    return `${step.targetFrom} уд/хв`
+  }
   return ''
 }
 

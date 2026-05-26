@@ -87,6 +87,10 @@ function renderStep(step: WatchWorkoutStep): string {
     intensity = ` ${secToMinKm(step.targetFrom)}-${secToMinKm(step.targetTo)}/km Pace`
   } else if (step.targetUnit === 'PACE' && step.targetFrom) {
     intensity = ` ${secToMinKm(step.targetFrom)}/km Pace`
+  } else if (step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom && step.targetTo) {
+    intensity = ` ${step.targetFrom}-${step.targetTo}bpm HR`
+  } else if (step.targetUnit === 'HEART_RATE_ZONE' && step.targetFrom) {
+    intensity = ` ${step.targetFrom}bpm HR`
   } else {
     const zone = STEP_ZONE[step.type]
     if (zone) intensity = ` ${zone}`
