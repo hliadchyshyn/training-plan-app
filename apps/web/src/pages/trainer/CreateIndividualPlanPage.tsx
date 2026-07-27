@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
 import { getMondayOfWeek } from '../../utils/date.js'
 import { DAY_NAMES } from '../../utils/constants.js'
 import { TemplateLibraryPicker } from '../../components/TemplateLibraryPicker.js'
+import { getErrorMessage } from '../../utils/errors.js'
+
+type DuplicatePlanError = { response?: { status?: number; data?: { existingPlanId?: string } } }
 
 interface PendingTemplate {
   name: string
@@ -19,6 +22,7 @@ export function CreateIndividualPlanPage() {
   const [notes, setNotes] = useState('')
   const [pendingTemplate, setPendingTemplate] = useState<PendingTemplate | null>(null)
   const [error, setError] = useState('')
+  const [existingPlanId, setExistingPlanId] = useState('')
 
   const { data: uniqueAthletes = [] } = useQuery<Array<{ id: string; name: string; email: string }>>({
     queryKey: ['my-athletes'],
@@ -28,7 +32,15 @@ export function CreateIndividualPlanPage() {
   const createPlan = useMutation({
     mutationFn: (data: unknown) => api.post('/plans/individual', data),
     onSuccess: () => navigate('/trainer'),
-    onError: () => setError('Помилка збереження плану'),
+    onError: (err: DuplicatePlanError) => {
+      if (err.response?.status === 409) {
+        setExistingPlanId(err.response.data?.existingPlanId ?? '')
+        setError(getErrorMessage(err, 'План на цей тиждень для цього спортсмена вже існує'))
+        return
+      }
+      setExistingPlanId('')
+      setError(getErrorMessage(err, 'Помилка збереження плану'))
+    },
   })
 
   const queueTemplateForDaySelection = (template: { name: string; planText: string }) => {
@@ -115,7 +127,7 @@ export function CreateIndividualPlanPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: '1rem', marginBottom: '1rem' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label>Спортсмен</label>
-            <select value={athleteId} onChange={(e) => setAthleteId(e.target.value)} required>
+            <select value={athleteId} onChange={(e) => { setAthleteId(e.target.value); setError(''); setExistingPlanId('') }} required>
               <option value="">Оберіть спортсмена...</option>
               {uniqueAthletes.map((a) => (
                 <option key={a.id} value={a.id}>{a.name} ({a.email})</option>
@@ -127,7 +139,7 @@ export function CreateIndividualPlanPage() {
             <input
               type="date"
               value={weekStart}
-              onChange={(e) => setWeekStart(getMondayOfWeek(e.target.value))}
+              onChange={(e) => { setWeekStart(getMondayOfWeek(e.target.value)); setError(''); setExistingPlanId('') }}
             />
           </div>
         </div>
@@ -160,7 +172,17 @@ export function CreateIndividualPlanPage() {
           })}
         </div>
 
-        {error && <p className="error" style={{ marginBottom: '0.75rem' }}>{error}</p>}
+        {error && (
+          <p className="error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+            {existingPlanId && (
+              <>
+                {' '}
+                <Link to={`/trainer/plans/individual/${existingPlanId}/edit`}>Відкрити існуючий план</Link>
+              </>
+            )}
+          </p>
+        )}
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn-primary" type="submit" disabled={createPlan.isPending}>
             {createPlan.isPending ? 'Збереження...' : 'Зберегти план'}

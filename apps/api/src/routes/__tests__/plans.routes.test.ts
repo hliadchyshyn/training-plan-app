@@ -15,6 +15,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     },
     individualPlan: {
       create: vi.fn().mockResolvedValue({ id: 'plan-1', days: [] }),
+      findFirst: vi.fn().mockResolvedValue(null),
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -68,7 +69,7 @@ describe('planRoutes', () => {
   it('creates an individual plan when weekStart is a date-only Monday string', async () => {
     const individualPlanCreate = vi.fn().mockResolvedValue({ id: 'plan-1', days: [] })
     const app = await buildApp({
-      individualPlan: { create: individualPlanCreate },
+      individualPlan: { create: individualPlanCreate, findFirst: vi.fn().mockResolvedValue(null) },
     })
 
     const res = await app.inject({
@@ -110,6 +111,31 @@ describe('planRoutes', () => {
     })
 
     expect(res.statusCode).toBe(400)
+    expect(individualPlanCreate).not.toHaveBeenCalled()
+
+    await app.close()
+  })
+
+  it('rejects creating an individual plan when one already exists for the athlete/week', async () => {
+    const individualPlanCreate = vi.fn()
+    const individualPlanFindFirst = vi.fn().mockResolvedValue({ id: 'existing-plan-1' })
+    const app = await buildApp({
+      individualPlan: { create: individualPlanCreate, findFirst: individualPlanFindFirst },
+    })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/plans/individual',
+      headers: { authorization: makeBearer(app) },
+      payload: {
+        athleteId: '5a263440-a53f-4bb4-b89a-765fef2d818f',
+        weekStart: '2026-05-18',
+        days: [{ dayOfWeek: 1, rawText: 'Easy run 40 min' }],
+      },
+    })
+
+    expect(res.statusCode).toBe(409)
+    expect(res.json()).toMatchObject({ existingPlanId: 'existing-plan-1' })
     expect(individualPlanCreate).not.toHaveBeenCalled()
 
     await app.close()

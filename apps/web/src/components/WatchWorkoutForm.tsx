@@ -117,6 +117,8 @@ function SortableStepRow({
 
   const [paceFromText, setPaceFromText] = useState(() => secToPace(step.targetFrom))
   const [paceToText, setPaceToText] = useState(() => secToPace(step.targetTo))
+  const [distanceUnit, setDistanceUnit] = useState<'m' | 'km'>('m')
+  const [timeUnit, setTimeUnit] = useState<'s' | 'min'>('s')
 
   useEffect(() => {
     if (step.targetUnit !== 'PACE') {
@@ -201,16 +203,61 @@ function SortableStepRow({
             </select>
           </div>
 
-          {step.durationUnit !== 'OPEN' && (
-            <div className="form-group" style={{ flex: '0 1 90px', margin: 0 }}>
-              <label style={{ fontSize: '0.75rem' }}>{step.durationUnit === 'DISTANCE' ? 'Метрів' : 'Секунд'}</label>
-              <input
-                type="number"
-                min={1}
-                value={step.durationValue ?? ''}
-                onChange={(e) => set({ durationValue: parseInt(e.target.value) || undefined })}
-                placeholder={step.durationUnit === 'DISTANCE' ? '800' : '180'}
-              />
+          {step.durationUnit === 'DISTANCE' && (
+            <div className="form-group" style={{ flex: '0 1 130px', margin: 0 }}>
+              <label style={{ fontSize: '0.75rem' }}>Дистанція</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  style={{ flex: 1 }}
+                  value={step.durationValue === undefined ? '' : distanceUnit === 'km' ? step.durationValue / 1000 : step.durationValue}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    const meters = Number.isNaN(v) ? undefined : Math.round(distanceUnit === 'km' ? v * 1000 : v)
+                    set({ durationValue: meters })
+                  }}
+                  placeholder={distanceUnit === 'km' ? '0.8' : '800'}
+                />
+                <select
+                  value={distanceUnit}
+                  onChange={(e) => setDistanceUnit(e.target.value as 'm' | 'km')}
+                  style={{ flex: '0 0 60px' }}
+                >
+                  <option value="m">м</option>
+                  <option value="km">км</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {step.durationUnit === 'TIME' && (
+            <div className="form-group" style={{ flex: '0 1 130px', margin: 0 }}>
+              <label style={{ fontSize: '0.75rem' }}>Тривалість</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  style={{ flex: 1 }}
+                  value={step.durationValue === undefined ? '' : timeUnit === 'min' ? step.durationValue / 60 : step.durationValue}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    const seconds = Number.isNaN(v) ? undefined : Math.round(timeUnit === 'min' ? v * 60 : v)
+                    set({ durationValue: seconds })
+                  }}
+                  placeholder={timeUnit === 'min' ? '3' : '180'}
+                />
+                <select
+                  value={timeUnit}
+                  onChange={(e) => setTimeUnit(e.target.value as 's' | 'min')}
+                  style={{ flex: '0 0 60px' }}
+                >
+                  <option value="s">сек</option>
+                  <option value="min">хв</option>
+                </select>
+              </div>
             </div>
           )}
 

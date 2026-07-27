@@ -92,6 +92,17 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(403).send({ error: 'Athlete not assigned to you' })
       }
 
+      const existing = await fastify.prisma.individualPlan.findFirst({
+        where: { trainerId, athleteId: body.athleteId, weekStart: new Date(body.weekStart) },
+        select: { id: true },
+      })
+      if (existing) {
+        return reply.status(409).send({
+          error: 'План на цей тиждень для цього спортсмена вже існує',
+          existingPlanId: existing.id,
+        })
+      }
+
       const plan = await fastify.prisma.individualPlan.create({
         data: {
           trainerId,

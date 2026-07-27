@@ -37,8 +37,8 @@ function intensityForType(type: WatchWorkoutStep['type']): number {
   switch (type) {
     case 'WARMUP': return INTENSITY_WARMUP
     case 'COOLDOWN': return INTENSITY_COOLDOWN
-    case 'RECOVERY':
-    case 'REST': return INTENSITY_RECOVERY
+    case 'RECOVERY': return INTENSITY_RECOVERY
+    case 'REST': return INTENSITY_REST
     default: return INTENSITY_ACTIVE
   }
 }

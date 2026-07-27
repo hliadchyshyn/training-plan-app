@@ -211,11 +211,13 @@ describe('parsedDataToSteps', () => {
       expect(steps[1].repeatCount).toBe(4) // sets
     })
 
-    it('appends outer recovery step after outer REPEAT_END when seriesRest is set', () => {
+    it('places outer recovery step inside the outer repeat, before REPEAT_END, when seriesRest is set', () => {
       const steps = parsedDataToSteps(workout([{ distance: '200м', sets: 4, series: 3, seriesRest: '3 хв' }]))
-      const lastStep = steps[steps.length - 1]
-      expect(lastStep.type).toBe('RECOVERY')
-      expect(lastStep.durationValue).toBe(180)
+      const outerRepeatEndIdx = steps.findLastIndex((s) => s.type === 'REPEAT_END')
+      const recoveryStep = steps[outerRepeatEndIdx - 1]
+      expect(recoveryStep.type).toBe('RECOVERY')
+      expect(recoveryStep.durationValue).toBe(180)
+      expect(steps[steps.length - 1].type).toBe('REPEAT_END')
     })
 
     it('handles series > 1 with sets = 1 (only outer repeat)', () => {
@@ -307,7 +309,7 @@ describe('parsedDataToSteps', () => {
       expect(types[1]).toBe('REPEAT_BEGIN')
       // last ACTIVE step is the cooldown, after all repeats
       const lastRepeatEnd = types.lastIndexOf('REPEAT_END')
-      expect(types[lastRepeatEnd + 1]).toBe('RECOVERY') // seriesRest
+      expect(types[lastRepeatEnd - 1]).toBe('RECOVERY') // seriesRest, inside the outer repeat
       expect(types[types.length - 1]).toBe('ACTIVE')    // cooldown
       expect(steps[types.length - 1].durationValue).toBe(2000)
     })

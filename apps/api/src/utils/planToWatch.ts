@@ -103,8 +103,8 @@ export function parsedDataToSteps(parsedData: unknown): WatchWorkoutStep[] {
         if (recoveryStep) steps.push(recoveryStep)
       }
 
-      steps.push({ type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' })
       if (outerRecovery) steps.push(outerRecovery)
+      steps.push({ type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' })
     } else if (sets > 1) {
       steps.push({ type: 'REPEAT_BEGIN', repeatCount: sets, durationUnit: 'OPEN', targetUnit: 'OPEN' })
       steps.push(activeStep)
