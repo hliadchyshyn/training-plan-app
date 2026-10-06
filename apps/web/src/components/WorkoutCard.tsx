@@ -1,4 +1,4 @@
-import { calcVolumeKm } from '../utils/volume.js'
+import { calcVolumeKm } from '@training-plan/shared'
 
 interface WorkoutBlock {
   sets?: number

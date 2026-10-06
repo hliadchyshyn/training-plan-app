@@ -3,9 +3,10 @@ import bcrypt from 'bcrypt'
 import { z } from 'zod'
 import { OAuth2Client } from 'google-auth-library'
 import type { Role } from '@training-plan/shared'
-import { signTokens, setRefreshCookie, verifyRefreshToken, verifyWpSsoCookie, IS_PROD } from '../utils/auth-tokens.js'
+import { signTokens, setRefreshCookie, verifyRefreshToken } from '../utils/auth-tokens.js'
 import { BCRYPT_ROUNDS } from '../utils/constants.js'
 import { generateUniqueInviteCode } from '../utils/invite-codes.js'
+import { attemptWpSsoRefresh } from '../utils/wpSsoAuth.js'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -132,35 +133,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // WP SSO fallback: auto-login via shared cookie set by WordPress
-    const wpSsoSecret = process.env.WP_SSO_SECRET
-    const wpSsoCookie = request.cookies.wp_sso
-    if (wpSsoSecret && wpSsoCookie) {
-      const parsed = verifyWpSsoCookie(wpSsoCookie, wpSsoSecret)
-      if (!parsed) return reply.status(401).send({ error: 'Invalid WP SSO token' })
-
-      const email = parsed.email.toLowerCase()
-      const defaultTrainerId = process.env.DEFAULT_TRAINER_ID
-      const user = await fastify.prisma.user.upsert({
-        where: { email },
-        create: {
-          email,
-          name: parsed.name,
-          role: 'ATHLETE',
-          ...(defaultTrainerId ? { trainerId: defaultTrainerId } : {}),
-        },
-        update: {},
-      })
-
-      const { accessToken, refreshToken } = signTokens(fastify, user.id, user.email, user.role)
-      setRefreshCookie(reply, refreshToken)
-      reply.clearCookie('wp_sso', {
-        path: '/',
-        domain: IS_PROD ? '.tsclub.com.ua' : undefined,
-        secure: IS_PROD,
-        sameSite: 'lax',
-      })
-      return { accessToken }
-    }
+    const wpSso = await attemptWpSsoRefresh(fastify, request, reply)
+    if (wpSso.status === 'success') return { accessToken: wpSso.accessToken }
+    if (wpSso.status === 'invalid') return reply.status(401).send({ error: 'Invalid WP SSO token' })
 
     return reply.status(401).send({ error: 'No refresh token' })
   })

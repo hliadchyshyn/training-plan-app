@@ -1,3 +1,6 @@
+export * from './workoutText.js'
+export * from './volume.js'
+
 export type Role = 'ATHLETE' | 'TRAINER' | 'ADMIN'
 export type PlanType = 'GROUP' | 'INDIVIDUAL'
 export type FeedbackStatus = 'COMPLETED' | 'PARTIAL' | 'SKIPPED'

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { WatchWorkoutStep } from '@training-plan/shared'
-import { templateStepsToPlanText } from '../templateToPlanText.js'
+import { stepsToPlanText } from '@training-plan/shared'
 
-describe('templateStepsToPlanText', () => {
+describe('stepsToPlanText', () => {
   it('renders durations, labels, pace targets, and repeats', () => {
     const steps: WatchWorkoutStep[] = [
       { type: 'WARMUP', durationUnit: 'TIME', targetUnit: 'OPEN', durationValue: 600 },
@@ -13,7 +13,7 @@ describe('templateStepsToPlanText', () => {
       { type: 'COOLDOWN', durationUnit: 'OPEN', targetUnit: 'OPEN' },
     ]
 
-    expect(templateStepsToPlanText(steps)).toBe([
+    expect(stepsToPlanText(steps)).toBe([
       '10хв Розминка',
       '2x',
       '  1км Intervals @ 4:00-4:15/км',
@@ -30,7 +30,7 @@ describe('templateStepsToPlanText', () => {
       { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
     ]
 
-    expect(templateStepsToPlanText(steps)).toBe('4x\n  30с Відпочинок @ 5:00/км')
+    expect(stepsToPlanText(steps)).toBe('4x\n  30с Відпочинок @ 5:00/км')
   })
 
   it('formats meter and decimal kilometer distances', () => {
@@ -39,6 +39,6 @@ describe('templateStepsToPlanText', () => {
       { type: 'ACTIVE', durationUnit: 'DISTANCE', targetUnit: 'OPEN', durationValue: 1500 },
     ]
 
-    expect(templateStepsToPlanText(steps)).toBe('400м Активно\n1.5км Активно')
+    expect(stepsToPlanText(steps)).toBe('400м Активно\n1.5км Активно')
   })
 })

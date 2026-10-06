@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: .
     buildCommand: npm ci --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build --workspace=apps/api
-    startCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && SEED_ADMIN_EMAIL=admin@admin.com SEED_ADMIN_PASSWORD=qwerty123 npx tsx apps/api/prisma/seed.ts && node apps/api/dist/index.js
+    startCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && SEED_ADMIN_EMAIL=admin@admin.com SEED_ADMIN_PASSWORD=qwerty123 npx tsx apps/api/prisma/seed.ts && node --conditions=compiled apps/api/dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -24,6 +24,8 @@ services:
         sync: false
       - key: STRAVA_WEBHOOK_VERIFY_TOKEN
         sync: false
+      - key: STRAVA_WEBHOOK_SUBSCRIPTION_ID
+        sync: false  # subscription id Strava returns after you create the push subscription
       - key: STRAVA_REDIRECT_URI
         sync: false  # https://<api-domain>/api/strava/callback
 

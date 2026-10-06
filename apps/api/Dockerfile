@@ -34,10 +34,12 @@ RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 WORKDIR /workspace/apps/api
 
 COPY --from=builder /workspace/apps/api/dist ./dist
+COPY --from=builder /workspace/packages/shared/dist /workspace/packages/shared/dist
 COPY --from=builder /workspace/apps/api/src ./src
 COPY --from=builder /workspace/apps/api/prisma ./prisma
 COPY --from=builder /workspace/node_modules/.prisma /workspace/node_modules/.prisma
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+# "compiled" resolves @training-plan/shared to its built dist/ instead of its .ts source
+CMD ["node", "--conditions=compiled", "dist/index.js"]

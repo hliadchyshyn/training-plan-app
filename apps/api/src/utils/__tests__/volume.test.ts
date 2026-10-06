@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcVolumeKm, parseDistanceMeters } from '../volume.js'
+import { calcVolumeKm, parseDistanceMeters } from '@training-plan/shared'
 
 describe('parseDistanceMeters', () => {
   it('parses km and meter values', () => {
@@ -9,6 +9,16 @@ describe('parseDistanceMeters', () => {
 
   it('returns 0 when there is no distance', () => {
     expect(parseDistanceMeters('easy run')).toBe(0)
+  })
+
+  it('does not read minutes as meters', () => {
+    expect(parseDistanceMeters('5 min')).toBe(0)
+    expect(parseDistanceMeters('3 мін')).toBe(0)
+  })
+
+  it('still parses a unit followed by punctuation or more text', () => {
+    expect(parseDistanceMeters('800м,')).toBe(800)
+    expect(parseDistanceMeters('2km easy')).toBe(2000)
   })
 })
 

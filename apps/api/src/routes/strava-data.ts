@@ -1,8 +1,21 @@
 import type { FastifyInstance } from 'fastify'
+import { z } from 'zod'
 import { syncActivities } from '../utils/strava.js'
 import { matchActivities } from '../utils/stravaMatch.js'
 
+const webhookEventSchema = z.object({
+  object_type: z.string(),
+  object_id: z.number(),
+  owner_id: z.number(),
+  aspect_type: z.string(),
+  subscription_id: z.number(),
+})
+
 export async function stravaDataRoutes(fastify: FastifyInstance) {
+  if (!process.env.STRAVA_WEBHOOK_SUBSCRIPTION_ID) {
+    fastify.log.warn('STRAVA_WEBHOOK_SUBSCRIPTION_ID is not set — all Strava webhook events will be rejected and auto-sync is disabled')
+  }
+
   // GET /api/strava/status
   fastify.get('/status', { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) }, async (request) => {
     const userId = request.user.sub
@@ -47,24 +60,39 @@ export async function stravaDataRoutes(fastify: FastifyInstance) {
   })
 
   // POST /api/strava/webhook — Strava push event
-  fastify.post('/webhook', async (request) => {
-    const event = request.body as { object_type: string; object_id: number; owner_id: number; aspect_type: string }
+  // Strava doesn't sign webhook payloads. The subscription_id in the body is the
+  // trust seam it does offer: it's assigned when the subscription is created and
+  // is not guessable, so checking it against our own subscription stops randomly
+  // POSTed owner_id values from triggering syncs for accounts that never opted in.
+  fastify.post(
+    '/webhook',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = webhookEventSchema.safeParse(request.body)
+      if (!parsed.success) return reply.status(400).send({ error: 'Invalid payload' })
+      const event = parsed.data
 
-    if (event.object_type === 'activity' && (event.aspect_type === 'create' || event.aspect_type === 'update')) {
-      const account = await fastify.prisma.stravaAccount.findUnique({
-        where: { stravaAthleteId: BigInt(event.owner_id) },
-      })
-      if (account) {
-        syncActivities(account.userId, fastify.prisma, 2)
-          .then(() => matchActivities(account.userId, fastify.prisma))
-          .catch((err: unknown) =>
-            fastify.log.error({ err, userId: account.userId }, 'Background Strava sync failed on webhook event'),
-          )
+      const expectedSubscriptionId = process.env.STRAVA_WEBHOOK_SUBSCRIPTION_ID
+      if (!expectedSubscriptionId || String(event.subscription_id) !== expectedSubscriptionId) {
+        return reply.status(403).send({ error: 'Unknown subscription' })
       }
-    }
 
-    return { ok: true }
-  })
+      if (event.object_type === 'activity' && (event.aspect_type === 'create' || event.aspect_type === 'update')) {
+        const account = await fastify.prisma.stravaAccount.findUnique({
+          where: { stravaAthleteId: BigInt(event.owner_id) },
+        })
+        if (account) {
+          syncActivities(account.userId, fastify.prisma, 2)
+            .then(() => matchActivities(account.userId, fastify.prisma))
+            .catch((err: unknown) =>
+              fastify.log.error({ err, userId: account.userId }, 'Background Strava sync failed on webhook event'),
+            )
+        }
+      }
+
+      return { ok: true }
+    },
+  )
 
   // GET /api/strava/activities
   fastify.get('/activities', { preHandler: fastify.requireRole(['ATHLETE', 'TRAINER', 'ADMIN']) }, async (request) => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parsedDataToSteps } from '../planToWatch.js'
+import { parsedDataToSteps, stepsToParsedWorkout } from '../planToWatch.js'
+import { calcVolumeKm } from '@training-plan/shared'
 import type { ParsedWorkout, WatchWorkoutStep } from '@training-plan/shared'
 
 // ---------------------------------------------------------------------------
@@ -377,5 +378,165 @@ describe('parsedDataToSteps', () => {
       const active = steps.find((s) => s.type === 'ACTIVE')!
       expect(active.name).toBeUndefined()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// stepsToParsedWorkout — inverse direction, used by /schedule and /apply/calendar
+// ---------------------------------------------------------------------------
+
+describe('stepsToParsedWorkout', () => {
+  it('returns null for an empty step list', () => {
+    expect(stepsToParsedWorkout([])).toBeNull()
+  })
+
+  it('converts a single distance step into one block', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 5000, targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)).toEqual({ blocks: [{ distance: '5km' }], pace: undefined })
+  })
+
+  it('converts a single time step into one block', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'ACTIVE', durationUnit: 'TIME', durationValue: 1800, targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)).toEqual({ blocks: [{ duration: '30:00' }], pace: undefined })
+  })
+
+  it('attaches a following RECOVERY step as rest', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 90, targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([{ distance: '400m', rest: '1:30' }])
+  })
+
+  it('folds a plain REPEAT_BEGIN/END group into sets on one block', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'REPEAT_BEGIN', repeatCount: 4, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 90, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([{ distance: '400m', rest: '1:30', sets: 4 }])
+  })
+
+  it('folds a nested series-of-sets group with a seriesRest into one block', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'REPEAT_BEGIN', repeatCount: 3, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'REPEAT_BEGIN', repeatCount: 4, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 45, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 180, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([
+      { distance: '200m', rest: '0:45', sets: 4, series: 3, seriesRest: '3:00' },
+    ])
+  })
+
+  it('handles multiple top-level blocks (warmup + interval + cooldown)', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'WARMUP', durationUnit: 'TIME', durationValue: 600, targetUnit: 'OPEN' },
+      { type: 'REPEAT_BEGIN', repeatCount: 4, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'COOLDOWN', durationUnit: 'TIME', durationValue: 300, targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([
+      { duration: '10:00' },
+      { distance: '400m', sets: 4 },
+      { duration: '5:00' },
+    ])
+  })
+
+  it('derives a general pace range from a PACE-targeted step', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 1000, targetUnit: 'PACE', targetFrom: 240, targetTo: 255 },
+    ]
+    expect(stepsToParsedWorkout(steps)?.pace).toEqual({ general: '4:00-4:15' })
+  })
+
+  it('round-trips distance/sets/rest through parsedDataToSteps and back', () => {
+    const original = workout([{ distance: '400м', sets: 4, rest: '1:30' }])
+    const steps = parsedDataToSteps(original)
+    const reconstructed = stepsToParsedWorkout(steps)
+    expect(reconstructed?.blocks).toEqual([{ distance: '400m', rest: '1:30', sets: 4 }])
+  })
+
+  it('keeps a distance-based recovery as a distance, not as seconds', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'REPEAT_BEGIN', repeatCount: 6, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([{ distance: '400m', rest: '200m', sets: 6 }])
+  })
+
+  it('does not attach an open (valueless) recovery as a 0:00 rest', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([{ distance: '400m' }])
+  })
+
+  it('keeps the repeat count on every step of a multi-step repeat', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'REPEAT_BEGIN', repeatCount: 5, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 200, targetUnit: 'OPEN' },
+      { type: 'RECOVERY', durationUnit: 'TIME', durationValue: 60, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+    ]
+    const parsed = stepsToParsedWorkout(steps)
+    expect(parsed?.blocks).toEqual([
+      { distance: '200m', sets: 5 },
+      { distance: '200m', rest: '1:00', sets: 5 },
+    ])
+    expect(calcVolumeKm(parsed)).toBe(2)
+  })
+
+  it('multiplies sets when a multi-step repeat is itself repeated', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'REPEAT_BEGIN', repeatCount: 2, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'REPEAT_BEGIN', repeatCount: 3, durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 300, targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 100, targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+    ]
+    expect(calcVolumeKm(stepsToParsedWorkout(steps))).toBe(2.4)
+  })
+
+  it('ignores a stray top-level REPEAT_END instead of stopping early', () => {
+    const steps: WatchWorkoutStep[] = [
+      { type: 'REPEAT_END', durationUnit: 'OPEN', targetUnit: 'OPEN' },
+      { type: 'ACTIVE', durationUnit: 'DISTANCE', durationValue: 1000, targetUnit: 'OPEN' },
+    ]
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([{ distance: '1km' }])
+  })
+
+  it('round-trips a distance recovery through parsedDataToSteps and back', () => {
+    const original = workout([{ distance: '400m', sets: 6, rest: '200m' }])
+    const steps = parsedDataToSteps(original)
+    expect(steps.find((s) => s.type === 'RECOVERY')).toMatchObject({ durationUnit: 'DISTANCE', durationValue: 200 })
+    expect(stepsToParsedWorkout(steps)?.blocks).toEqual([{ distance: '400m', rest: '200m', sets: 6 }])
+  })
+})
+
+describe('parsedDataToSteps rest units', () => {
+  it('reads a "2 min" rest as time, not as a 2 m distance', () => {
+    const steps = parsedDataToSteps(workout([{ distance: '400m', rest: '2 min' }]))
+    expect(steps.find((s) => s.type === 'RECOVERY')).toMatchObject({ durationUnit: 'TIME', durationValue: 120 })
+  })
+
+  it('emits a distance recovery between series when seriesRest is a distance', () => {
+    const steps = parsedDataToSteps(workout([{ distance: '200m', sets: 4, series: 2, seriesRest: '400m' }]))
+    const recoveries = steps.filter((s) => s.type === 'RECOVERY')
+    expect(recoveries).toEqual([{ type: 'RECOVERY', durationUnit: 'DISTANCE', durationValue: 400, targetUnit: 'OPEN' }])
   })
 })

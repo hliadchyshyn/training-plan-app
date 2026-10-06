@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client.js'
 import type { WatchSport, WatchWorkoutStep } from '@training-plan/shared'
-import { templateStepsToPlanText } from '../utils/templateToPlanText.js'
+import { stepsToPlanText } from '@training-plan/shared'
 
 interface TemplateLibraryItem {
   id: string
@@ -55,7 +55,7 @@ export function TemplateLibraryPicker({
     if (!selectedTemplate) return
     onApply({
       ...selectedTemplate,
-      planText: templateStepsToPlanText(selectedTemplate.steps),
+      planText: stepsToPlanText(selectedTemplate.steps),
     })
   }
 

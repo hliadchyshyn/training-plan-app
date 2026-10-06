@@ -1,16 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { parseDistanceMeters } from '@training-plan/shared'
 import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, IND_PLAN_DAYS_INCLUDE } from '../utils/db.js'
 
 function serializeStrava(act: { stravaId: bigint; [k: string]: unknown } | null) {
   return act ? { ...act, stravaId: act.stravaId.toString() } : null
-}
-
-function parseDistanceMeters(str: string): number {
-  const m = str.match(/(\d+(?:\.\d+)?)\s*(км|km|м|m)/i)
-  if (!m) return 0
-  const val = parseFloat(m[1])
-  return /км|km/i.test(m[2]) ? val * 1000 : val
 }
 
 const createSessionSchema = z.object({

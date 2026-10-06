@@ -1,4 +1,4 @@
-import type { WatchWorkoutStep } from '@training-plan/shared'
+import type { WatchWorkoutStep } from './index.js'
 
 const STEP_LABEL: Record<WatchWorkoutStep['type'], string> = {
   WARMUP: 'Розминка',
@@ -50,7 +50,8 @@ function formatTarget(step: WatchWorkoutStep): string {
   return ''
 }
 
-export function watchStepsToPlanText(steps: WatchWorkoutStep[]): string {
+/** Render watch workout steps as human-readable plan text (Ukrainian). */
+export function stepsToPlanText(steps: WatchWorkoutStep[]): string {
   const lines: string[] = []
   let depth = 0
 

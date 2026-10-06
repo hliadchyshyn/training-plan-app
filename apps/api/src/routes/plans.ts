@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { parseWorkout } from '../parsers/workout.js'
 import { ATHLETE_SELECT, EXERCISE_GROUPS_INCLUDE, DAYS_INCLUDE, IND_PLAN_DAYS_INCLUDE } from '../utils/db.js'
+import { resolvePlanDateWindow } from '../utils/planDateWindow.js'
 
 const exerciseGroupSchema = z.object({
   name: z.string().min(1),
@@ -136,23 +137,7 @@ export const planRoutes: FastifyPluginAsync = async (fastify) => {
       const groupPage = Math.max(parseInt(q.groupPage ?? '1', 10), 1)
       const indPage = Math.max(parseInt(q.indPage ?? '1', 10), 1)
 
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 6)
-
-      let dateFilter: Record<string, Date> = {}
-      let indDateFilter: Record<string, Date> = {}
-
-      if (q.month) {
-        const [y, m] = q.month.split('-').map(Number)
-        dateFilter = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) }
-        indDateFilter = dateFilter
-      } else if (q.tab === 'past') {
-        dateFilter = { lt: today }
-        indDateFilter = { lt: weekAgo }
-      } else if (!q.date) {
-        dateFilter = { gte: today }
-        indDateFilter = { gte: weekAgo }
-      }
+      const { dateFilter, indDateFilter } = resolvePlanDateWindow(q)
 
       const hasDateFilter = Object.keys(dateFilter).length > 0
       const hasIndDateFilter = Object.keys(indDateFilter).length > 0

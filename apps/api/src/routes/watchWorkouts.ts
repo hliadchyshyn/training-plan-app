@@ -2,10 +2,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import type { WatchWorkoutStep, WatchSport } from '@training-plan/shared'
+import { stepsToPlanText } from '@training-plan/shared'
 import { parseWorkout } from '../parsers/workout.js'
-import { parsedDataToSteps } from '../utils/planToWatch.js'
+import { parsedDataToSteps, stepsToParsedWorkout } from '../utils/planToWatch.js'
 import { stepsToFit } from '../utils/watchExport.js'
-import { watchStepsToPlanText } from '../utils/watchStepsToPlanText.js'
 
 const watchStepSchema = z.object({
   type: z.enum(['WARMUP', 'ACTIVE', 'RECOVERY', 'COOLDOWN', 'REST', 'REPEAT_BEGIN', 'REPEAT_END']),
@@ -204,7 +204,8 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const planDate = new Date(date)
       if (isNaN(planDate.getTime())) return reply.code(400).send({ error: 'Invalid date' })
-      const rawText = watchStepsToPlanText(workout.steps as unknown as WatchWorkoutStep[]) || workout.notes || workout.name
+      const steps = workout.steps as unknown as WatchWorkoutStep[]
+      const rawText = stepsToPlanText(steps) || workout.notes || workout.name
 
       const plan = await fastify.prisma.trainingPlan.create({
         data: {
@@ -216,7 +217,8 @@ export const watchWorkoutsRoutes: FastifyPluginAsync = async (fastify) => {
             create: [{
               name: workout.name,
               rawText,
-              parsedData: (parseWorkout(rawText) ?? undefined) as Prisma.InputJsonValue | undefined,
+              // No usable steps → fall back to parsing the notes/name text, as before
+              parsedData: (stepsToParsedWorkout(steps) ?? parseWorkout(rawText) ?? undefined) as Prisma.InputJsonValue | undefined,
               order: 0,
             }],
           },
