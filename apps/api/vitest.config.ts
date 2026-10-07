@@ -22,6 +22,10 @@ export default defineConfig({
         'src/utils/planToWatch.ts',
         'src/utils/stravaMatch.ts',
         'src/utils/watchExport.ts',
+        'src/utils/wpBridgeAuth.ts',
+        'src/utils/wpRaceSync.ts',
+        'src/utils/wpRaceClient.ts',
+        'src/utils/raceEntries.ts',
       ],
       thresholds: {
         lines: 80,

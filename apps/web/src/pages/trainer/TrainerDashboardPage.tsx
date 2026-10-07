@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ActionIcon } from '@mantine/core'
 import { IconPlus } from '@tabler/icons-react'
 import { api } from '../../api/client.js'
+import { UpcomingRacesWidget } from '../../components/UpcomingRacesWidget.js'
 import { formatDate, formatWeekRange, toLocalDateStr } from '../../utils/date.js'
 
 const LIMIT = 50
@@ -451,6 +452,8 @@ export function TrainerDashboardPage() {
             </div>
           )}
         </div>
+
+      <UpcomingRacesWidget />
 
       <TabBar
         tabs={[{ value: 'group', label: 'Групові плани' }, { value: 'individual', label: 'Індивідуальні плани' }]}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { AthleteWeekRaces } from '../../components/AthleteWeekRaces.js'
 import { api } from '../../api/client.js'
 import { getMondayOfWeek } from '../../utils/date.js'
 import { DAY_NAMES } from '../../utils/constants.js'
@@ -143,6 +144,8 @@ export function CreateIndividualPlanPage() {
             />
           </div>
         </div>
+
+        {athleteId && <AthleteWeekRaces athleteId={athleteId} weekStart={weekStart} />}
 
         <div className="form-group">
           <label>Нотатки</label>

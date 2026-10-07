@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client.js'
+import { WpRaceSyncPanel } from '../../components/WpRaceSyncPanel.js'
 import type { Role } from '@training-plan/shared'
 
 interface User {
@@ -58,6 +59,8 @@ export function AdminPage() {
 
   return (
     <div className="page">
+      <WpRaceSyncPanel />
+
       <h2 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '1.25rem' }}>Користувачі</h2>
 
       {isLoading && <p style={{ color: 'var(--color-text-muted)' }}>Завантаження...</p>}

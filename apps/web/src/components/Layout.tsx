@@ -14,6 +14,7 @@ import {
   IconUser,
   IconBooks,
   IconHelpCircle,
+  IconFlag,
 } from '@tabler/icons-react'
 import { useAuthStore } from '../store/auth.js'
 import logoSvg from '../assets/logo.svg'
@@ -71,6 +72,14 @@ export function Layout() {
       icon: <IconUsers size={20} />,
       active: pathname.startsWith('/trainer/athletes'),
       show: isTrainer,
+    },
+    {
+      to: '/races',
+      label: 'Старти',
+      mobileLabel: 'Старти',
+      icon: <IconFlag size={20} />,
+      active: pathname.startsWith('/races'),
+      show: true,
     },
     {
       to: '/help',

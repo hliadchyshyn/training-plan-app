@@ -15,6 +15,9 @@ import { watchWorkoutsRoutes } from './routes/watchWorkouts.js'
 import { intervalsRoutes } from './routes/intervals.js'
 import { templatesRoutes } from './routes/templates.js'
 import { webhookRoutes } from './routes/webhook.js'
+import { wpIntegrationRoutes } from './routes/integrations-wp.js'
+import { raceRoutes } from './routes/races.js'
+import { wpRaceSyncScheduler } from './plugins/wpRaceSyncScheduler.js'
 
 // Validate required environment variables before server starts
 const IS_PROD = process.env.NODE_ENV === 'production'
@@ -48,6 +51,9 @@ await server.register(watchWorkoutsRoutes, { prefix: '/api/watch-workouts' })
 await server.register(intervalsRoutes, { prefix: '/api/intervals' })
 await server.register(templatesRoutes, { prefix: '/api/templates' })
 await server.register(webhookRoutes, { prefix: '/api/webhook' })
+await server.register(wpIntegrationRoutes, { prefix: '/api/integrations/wp' })
+await server.register(raceRoutes, { prefix: '/api/races' })
+await server.register(wpRaceSyncScheduler)
 
 server.setErrorHandler((error, _request, reply) => {
   // Zod validation errors come through as plain Errors with JSON message

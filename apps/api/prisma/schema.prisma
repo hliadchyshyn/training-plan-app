@@ -202,6 +202,58 @@ model IntervalsConnection {
   updatedAt   DateTime @updatedAt
 }
 
+// Read-only mirror of tsclub.com.ua (WordPress) data, pushed by the WP bridge.
+// Linked to User by lowercased email at query time — no FK, so entries for
+// people who haven't joined plans yet appear as soon as they do.
+
+model RaceRegistration {
+  id               String   @id @default(uuid())
+  wpId             Int      @unique // wp_anons_registrations.id
+  wpUserId         Int
+  email            String   // lowercased
+  userName         String?
+  anonsEventId     Int
+  eventTitle       String
+  eventDate        DateTime @db.Date
+  location         String?
+  eventUrl         String?
+  distance         String
+  raceDistanceCode String?
+  goalTimeRaw      String?
+  goalSeconds      Int?
+  notes            String?
+  wpUpdatedAt      DateTime
+  syncedAt         DateTime @default(now())
+
+  @@index([email, eventDate])
+  @@index([eventDate])
+}
+
+model RaceResult {
+  id               String   @id @default(uuid())
+  wpId             Int      @unique // wp_race_results.id
+  wpUserId         Int
+  email            String   // lowercased
+  raceEventId      Int
+  eventTitle       String
+  eventDate        DateTime @db.Date
+  distanceCode     String
+  distanceLabel    String
+  distanceMeters   Int
+  resultTimeRaw    String
+  resultSeconds    Int
+  resultStatus     String   // finished | DNF | DNS | DQ
+  isPersonalBest   Boolean  @default(false)
+  isSeasonBest     Boolean  @default(false)
+  registrationWpId Int?     // matched anons registration; no FK — a result may arrive before it
+  wpUpdatedAt      DateTime
+  syncedAt         DateTime @default(now())
+
+  @@index([email, eventDate])
+  @@index([eventDate])
+  @@index([registrationWpId])
+}
+
 model SessionFeedback {
   id          String         @id @default(uuid())
   sessionId   String         @unique
