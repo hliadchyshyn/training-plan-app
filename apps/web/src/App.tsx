@@ -34,6 +34,7 @@ const TemplatesPage = lazy(() => import('./pages/TemplatesPage.js'))
 const TemplateDetailPage = lazy(() => import('./pages/TemplateDetailPage.js'))
 const EditTemplatePage = lazy(() => import('./pages/EditTemplatePage.js'))
 const HelpPage = lazy(() => import('./pages/HelpPage.js'))
+const RacesPage = named(() => import('./pages/RacesPage.js'), 'RacesPage')
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, _hasHydrated } = useAuthStore((s) => ({ user: s.user, _hasHydrated: s._hasHydrated }))
@@ -147,6 +148,7 @@ export default function App() {
             <Route path="/intervals" element={<IntervalsConnectPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/help" element={<HelpPage />} />
+            <Route path="/races" element={<RacesPage />} />
 
             <Route path="/watch-workouts" element={<Navigate to="/templates" replace />} />
             <Route path="/watch-workouts/new" element={<CreateWatchWorkoutPage />} />

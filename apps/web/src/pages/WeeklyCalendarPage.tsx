@@ -8,6 +8,9 @@ import { formatDate, formatWeekRange, toLocalDateStr } from '../utils/date.js'
 import { DAY_NAMES, STATUS_LABELS } from '../utils/constants.js'
 import type { Session, ExerciseGroup, StravaActivity } from '../types/common.js'
 import { StravaActivityChip } from '../components/StravaActivityChip.js'
+import { RaceBadge } from '../components/RaceBadge.js'
+import { useRaces, type RaceEntry } from '../api/races.js'
+import { addDays } from '../utils/races.js'
 
 interface GroupPlan {
   id: string
@@ -90,6 +93,14 @@ export function WeeklyCalendarPage() {
     queryKey: ['strava-status'],
     queryFn: () => api.get('/strava/status').then((r) => r.data),
   })
+
+  const weekStartStr: string = data?.weekStart?.split('T')[0] ?? currentDate
+  const { data: races = [] } = useRaces({ from: weekStartStr, to: addDays(weekStartStr, 6) })
+  const racesByDate: Record<string, RaceEntry[]> = {}
+  for (const race of races) {
+    if (!racesByDate[race.eventDate]) racesByDate[race.eventDate] = []
+    racesByDate[race.eventDate].push(race)
+  }
 
   const weekDates = data ? getWeekDates(data.weekStart) : []
   const groupPlans: GroupPlan[] = data?.groupPlans ?? []
@@ -220,7 +231,8 @@ export function WeeklyCalendarPage() {
             const isToday = date === today
 
             const dayStravaActs = stravaByDate[date] ?? []
-            const hasAnyContent = !isEmpty || dayStravaActs.length > 0
+            const dayRaces = racesByDate[date] ?? []
+            const hasAnyContent = !isEmpty || dayStravaActs.length > 0 || dayRaces.length > 0
 
             return (
               <div key={date} className="card" style={{
@@ -239,7 +251,9 @@ export function WeeklyCalendarPage() {
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {isEmpty && dayStravaActs.length === 0 && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>День відпочинку</span>}
+                  {dayRaces.map((race) => <RaceBadge key={race.key} entry={race} />)}
+
+                  {isEmpty && dayStravaActs.length === 0 && dayRaces.length === 0 && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>День відпочинку</span>}
 
                   {dayGroupPlans.map((plan) => (
                     <Link key={plan.id} to={`/plan/${plan.id}`} style={{ display: 'block', textDecoration: 'none', marginBottom: '0.5rem' }}>

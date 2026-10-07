@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { AthleteWeekRaces } from '../../components/AthleteWeekRaces.js'
 import { api } from '../../api/client.js'
 import { formatWeekRange } from '../../utils/date.js'
 import { DAY_NAMES, STATUS_LABELS } from '../../utils/constants.js'
@@ -70,6 +71,8 @@ export function EditIndividualPlanPage() {
           {formatWeekRange(plan.weekStart)}
         </p>
       </div>
+
+      <AthleteWeekRaces athleteId={plan.athlete.id} weekStart={plan.weekStart.split('T')[0]} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', borderBottom: '2px solid var(--color-border)', paddingBottom: '0.5rem' }}>

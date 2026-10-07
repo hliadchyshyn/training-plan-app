@@ -200,3 +200,17 @@ label {
     }
   }
 }
+
+/* Races list: goal/result move under the title on narrow screens */
+@media (max-width: 48em) {
+  .race-row { flex-wrap: wrap; }
+  .race-row-side {
+    flex-basis: 100%;
+    text-align: left !important;
+    padding-left: calc(72px + 0.75rem);
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}
